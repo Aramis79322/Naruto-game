@@ -1,0 +1,431 @@
+{
+  "part1": [
+    {
+      "name": "Prologue",
+      "from": 1,
+      "to": 5
+    },
+    {
+      "name": "Land of Waves Escort",
+      "from": 6,
+      "to": 19
+    },
+    {
+      "name": "Chūnin Exams",
+      "from": 20,
+      "to": 35
+    },
+    {
+      "name": "Chūnin Exams",
+      "from": 36,
+      "to": 67
+    },
+    {
+      "name": "Destruction of Leaf",
+      "from": 68,
+      "to": 80
+    },
+    {
+      "name": "Search for Tsunade",
+      "from": 81,
+      "to": 83
+    },
+    {
+      "name": "Search for Tsunade",
+      "from": 84,
+      "to": 100
+    },
+    {
+      "name": "Standalone side story",
+      "from": 101,
+      "to": 101
+    },
+    {
+      "name": "Land of Tea Escort",
+      "from": 102,
+      "to": 106
+    },
+    {
+      "name": "Sasuke Retrieval",
+      "from": 107,
+      "to": 131
+    },
+    {
+      "name": "Sasuke Retrieval",
+      "from": 132,
+      "to": 135
+    },
+    {
+      "name": "Land of Rice Fields Investigation",
+      "from": 136,
+      "to": 141
+    },
+    {
+      "name": "Mizuki Tracking",
+      "from": 142,
+      "to": 147
+    },
+    {
+      "name": "Bikōchū Search",
+      "from": 148,
+      "to": 151
+    },
+    {
+      "name": "Kurosuki Family Removal",
+      "from": 152,
+      "to": 157
+    },
+    {
+      "name": "Standalone side story",
+      "from": 158,
+      "to": 158
+    },
+    {
+      "name": "Gosunkugi Capture",
+      "from": 159,
+      "to": 160
+    },
+    {
+      "name": "Standalone side story",
+      "from": 161,
+      "to": 161
+    },
+    {
+      "name": "Cursed Warrior Extermination",
+      "from": 162,
+      "to": 167
+    },
+    {
+      "name": "Standalone side story",
+      "from": 168,
+      "to": 168
+    },
+    {
+      "name": "Kaima Capture",
+      "from": 169,
+      "to": 173
+    },
+    {
+      "name": "Standalone side story",
+      "from": 174,
+      "to": 174
+    },
+    {
+      "name": "Buried Gold Excavation",
+      "from": 175,
+      "to": 176
+    },
+    {
+      "name": "Standalone side story",
+      "from": 177,
+      "to": 177
+    },
+    {
+      "name": "Star Guard",
+      "from": 178,
+      "to": 179
+    },
+    {
+      "name": "Star Guard",
+      "from": 180,
+      "to": 183
+    },
+    {
+      "name": "Standalone side stories",
+      "from": 184,
+      "to": 186
+    },
+    {
+      "name": "Peddlers Escort",
+      "from": 187,
+      "to": 191
+    },
+    {
+      "name": "Standalone side stories",
+      "from": 192,
+      "to": 194
+    },
+    {
+      "name": "Third Super-Beast",
+      "from": 195,
+      "to": 196
+    },
+    {
+      "name": "Recapture Plans of Leaf",
+      "from": 197,
+      "to": 201
+    },
+    {
+      "name": "Battles recap special",
+      "from": 202,
+      "to": 202
+    },
+    {
+      "name": "Yakumo Rescue",
+      "from": 203,
+      "to": 207
+    },
+    {
+      "name": "Standalone side story",
+      "from": 208,
+      "to": 208
+    },
+    {
+      "name": "Gantetsu Escort",
+      "from": 209,
+      "to": 212
+    },
+    {
+      "name": "Menma Memory Search",
+      "from": 213,
+      "to": 215
+    },
+    {
+      "name": "Support of Sand",
+      "from": 216,
+      "to": 220
+    }
+  ],
+  "part2": [
+    {
+      "name": "Kazekage Rescue",
+      "from": 1,
+      "to": 32
+    },
+    {
+      "name": "Long-Awaited Reunion",
+      "from": 33,
+      "to": 53
+    },
+    {
+      "name": "Twelve Guardian Ninja",
+      "from": 54,
+      "to": 71
+    },
+    {
+      "name": "Immortal Devastators – Hidan and Kakuzu",
+      "from": 72,
+      "to": 88
+    },
+    {
+      "name": "The Three-Tailed Demon Turtle",
+      "from": 89,
+      "to": 112
+    },
+    {
+      "name": "Master's Prophecy and Vengeance",
+      "from": 113,
+      "to": 118
+    },
+    {
+      "name": "Kakashi Chronicles: Boys' Life on the Battlefield",
+      "from": 119,
+      "to": 120
+    },
+    {
+      "name": "Master's Prophecy and Vengeance",
+      "from": 121,
+      "to": 126
+    },
+    {
+      "name": "Tales of a Gutsy Ninja \\~Jiraiya Ninja Scroll",
+      "from": 127,
+      "to": 128
+    },
+    {
+      "name": "Master's Prophecy and Vengeance",
+      "from": 129,
+      "to": 143
+    },
+    {
+      "name": "The Six-Tailed Demon Slug",
+      "from": 144,
+      "to": 151
+    },
+    {
+      "name": "Two Saviors",
+      "from": 152,
+      "to": 169
+    },
+    {
+      "name": "Big Adventure! The Quest for the Fourth Hokage's Legacy",
+      "from": 170,
+      "to": 171
+    },
+    {
+      "name": "Two Saviors",
+      "from": 172,
+      "to": 175
+    },
+    {
+      "name": "Past Arc: The Locus of Konoha",
+      "from": 176,
+      "to": 196
+    },
+    {
+      "name": "The Gathering of the Five Kage",
+      "from": 197,
+      "to": 221
+    },
+    {
+      "name": "Paradise Life on a Boat",
+      "from": 222,
+      "to": 242
+    },
+    {
+      "name": "Nine-Tails Taming and Karmic Encounters",
+      "from": 243,
+      "to": 256
+    },
+    {
+      "name": "Recap: Two Fates",
+      "from": 257,
+      "to": 260
+    },
+    {
+      "name": "Nine-Tails Taming and Karmic Encounters",
+      "from": 261,
+      "to": 270
+    },
+    {
+      "name": "Standalone side story",
+      "from": 271,
+      "to": 271
+    },
+    {
+      "name": "Nine-Tails Taming and Karmic Encounters",
+      "from": 272,
+      "to": 275
+    },
+    {
+      "name": "The Seven Shinobi Swordsmen",
+      "from": 276,
+      "to": 289
+    },
+    {
+      "name": "Power",
+      "from": 290,
+      "to": 295
+    },
+    {
+      "name": "The Fourth Great Ninja War: Assailants From Afar",
+      "from": 296,
+      "to": 310
+    },
+    {
+      "name": "Standalone side story",
+      "from": 311,
+      "to": 311
+    },
+    {
+      "name": "The Fourth Great Ninja War: Assailants From Afar",
+      "from": 312,
+      "to": 320
+    },
+    {
+      "name": "The Fourth Great Ninja War: Sasuke and Itachi",
+      "from": 321,
+      "to": 348
+    },
+    {
+      "name": "Kakashi: Shadow of the ANBU Black Ops",
+      "from": 349,
+      "to": 361
+    },
+    {
+      "name": "The Fourth Great Ninja War: The Return of Team 7",
+      "from": 362,
+      "to": 372
+    },
+    {
+      "name": "The Fourth Great Ninja War: Obito Uchiha",
+      "from": 373,
+      "to": 375
+    },
+    {
+      "name": "Extra edition",
+      "from": 376,
+      "to": 377
+    },
+    {
+      "name": "The Fourth Great Ninja War: Obito Uchiha",
+      "from": 378,
+      "to": 388
+    },
+    {
+      "name": "Standalone side story",
+      "from": 389,
+      "to": 390
+    },
+    {
+      "name": "The Fourth Great Ninja War: Obito Uchiha",
+      "from": 391,
+      "to": 393
+    },
+    {
+      "name": "In Naruto's Footsteps: Friends' Paths",
+      "from": 394,
+      "to": 413
+    },
+    {
+      "name": "Infinite Tsukuyomi: The Invocation",
+      "from": 414,
+      "to": 421
+    },
+    {
+      "name": "Standalone side story",
+      "from": 422,
+      "to": 423
+    },
+    {
+      "name": "Infinite Tsukuyomi: The Invocation",
+      "from": 424,
+      "to": 431
+    },
+    {
+      "name": "Jiraiya Shinobi Handbook: The Tale of Naruto the Hero",
+      "from": 432,
+      "to": 450
+    },
+    {
+      "name": "Itachi Shinden: Book of Light and Darkness",
+      "from": 451,
+      "to": 458
+    },
+    {
+      "name": "The Origins of Ninshū: The Two Souls, Indra and Ashura",
+      "from": 459,
+      "to": 468
+    },
+    {
+      "name": "Standalone side story",
+      "from": 469,
+      "to": 469
+    },
+    {
+      "name": "The Chapter of Naruto and Sasuke",
+      "from": 470,
+      "to": 479
+    },
+    {
+      "name": "Nostalgic Days",
+      "from": 480,
+      "to": 483
+    },
+    {
+      "name": "Sasuke Shinden: Book of Sunrise",
+      "from": 484,
+      "to": 488
+    },
+    {
+      "name": "Shikamaru Hiden: A Cloud Drifting in Silent Darkness",
+      "from": 489,
+      "to": 493
+    },
+    {
+      "name": "Konoha Hiden: The Perfect Day for a Wedding",
+      "from": 494,
+      "to": 500
+    }
+  ]
+}

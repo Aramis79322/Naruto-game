@@ -1,0 +1,20 @@
+# Capturas y artefactos de pruebas en la raíz
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.log
+/*.tmp
+
+# Sistema y Python
+.DS_Store
+Thumbs.db
+desktop.ini
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Entornos y credenciales locales
+.env
+.env.*

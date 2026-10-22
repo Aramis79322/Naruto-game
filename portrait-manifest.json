@@ -1,0 +1,277 @@
+{
+  "naruto": {
+    "name": "Naruto Uzumaki",
+    "file": "assets/portraits/naruto.png",
+    "bytes": 28574
+  },
+  "sasuke": {
+    "name": "Sasuke Uchiha",
+    "file": "assets/portraits/sasuke.png",
+    "bytes": 26520
+  },
+  "sakura": {
+    "name": "Sakura Haruno",
+    "file": "assets/portraits/sakura.png",
+    "bytes": 36590
+  },
+  "kakashi": {
+    "name": "Kakashi Hatake",
+    "file": "assets/portraits/kakashi.png",
+    "bytes": 21748
+  },
+  "hinata": {
+    "name": "Hinata Hyuga",
+    "file": "assets/portraits/hinata.png",
+    "bytes": 37546
+  },
+  "shikamaru": {
+    "name": "Shikamaru Nara",
+    "file": "assets/portraits/shikamaru.png",
+    "bytes": 16004
+  },
+  "rocklee": {
+    "name": "Rock Lee",
+    "file": "assets/portraits/rocklee.png",
+    "bytes": 35538
+  },
+  "gaara": {
+    "name": "Gaara",
+    "file": "assets/portraits/gaara.png",
+    "bytes": 20392
+  },
+  "neji": {
+    "name": "Neji Hyuga",
+    "file": "assets/portraits/neji.png",
+    "bytes": 22224
+  },
+  "kiba": {
+    "name": "Kiba Inuzuka",
+    "file": "assets/portraits/kiba.png",
+    "bytes": 22652
+  },
+  "shino": {
+    "name": "Shino Aburame",
+    "file": "assets/portraits/shino.png",
+    "bytes": 26316
+  },
+  "ino": {
+    "name": "Ino Yamanaka",
+    "file": "assets/portraits/ino.png",
+    "bytes": 27888
+  },
+  "choji": {
+    "name": "Chōji Akimichi",
+    "file": "assets/portraits/choji.png",
+    "bytes": 29190
+  },
+  "tenten": {
+    "name": "Tenten",
+    "file": "assets/portraits/tenten.png",
+    "bytes": 18290
+  },
+  "temari": {
+    "name": "Temari",
+    "file": "assets/portraits/temari.png",
+    "bytes": 38102
+  },
+  "kankuro": {
+    "name": "Kankuro",
+    "file": "assets/portraits/kankuro.png",
+    "bytes": 23632
+  },
+  "sai": {
+    "name": "Sai",
+    "file": "assets/portraits/sai.png",
+    "bytes": 27606
+  },
+  "yamato": {
+    "name": "Yamato",
+    "file": "assets/portraits/yamato.png",
+    "bytes": 25018
+  },
+  "jiraiya": {
+    "name": "Jiraiya",
+    "file": "assets/portraits/jiraiya.png",
+    "bytes": 47676
+  },
+  "tsunade": {
+    "name": "Tsunade",
+    "file": "assets/portraits/tsunade.png",
+    "bytes": 55400
+  },
+  "killerbee": {
+    "name": "Killer B",
+    "file": "assets/portraits/killerbee.png",
+    "bytes": 16258
+  },
+  "minato": {
+    "name": "Minato Namikaze",
+    "file": "assets/portraits/minato.png",
+    "bytes": 49276
+  },
+  "itachi": {
+    "name": "Itachi Uchiha",
+    "file": "assets/portraits/itachi.png",
+    "bytes": 23108
+  },
+  "kisame": {
+    "name": "Kisame Hoshigaki",
+    "file": "assets/portraits/kisame.png",
+    "bytes": 44090
+  },
+  "pain": {
+    "name": "Nagato",
+    "file": "assets/portraits/pain.png",
+    "bytes": 15760
+  },
+  "konan": {
+    "name": "Konan",
+    "file": "assets/portraits/konan.png",
+    "bytes": 25916
+  },
+  "deidara": {
+    "name": "Deidara",
+    "file": "assets/portraits/deidara.png",
+    "bytes": 34800
+  },
+  "sasori": {
+    "name": "Sasori",
+    "file": "assets/portraits/sasori.png",
+    "bytes": 35620
+  },
+  "hidan": {
+    "name": "Hidan",
+    "file": "assets/portraits/hidan.png",
+    "bytes": 51948
+  },
+  "kakuzu": {
+    "name": "Kakuzu",
+    "file": "assets/portraits/kakuzu.png",
+    "bytes": 22990
+  },
+  "orochimaru": {
+    "name": "Orochimaru",
+    "file": "assets/portraits/orochimaru.png",
+    "bytes": 18688
+  },
+  "madara": {
+    "name": "Madara Uchiha",
+    "file": "assets/portraits/madara.png",
+    "bytes": 28116
+  },
+  "obito": {
+    "name": "Obito Uchiha",
+    "file": "assets/portraits/obito.png",
+    "bytes": 18174
+  },
+  "kaguya": {
+    "name": "Kaguya Ōtsutsuki",
+    "file": "assets/portraits/kaguya.png",
+    "bytes": 27316
+  },
+  "hiruzen": {
+    "name": "Hiruzen Sarutobi",
+    "file": "assets/portraits/hiruzen.png",
+    "bytes": 30662
+  },
+  "iruka": {
+    "name": "Iruka Umino",
+    "file": "assets/portraits/iruka.png",
+    "bytes": 30102
+  },
+  "konohamaru": {
+    "name": "Konohamaru Sarutobi",
+    "file": "assets/portraits/konohamaru.png",
+    "bytes": 31384
+  },
+  "shizune": {
+    "name": "Shizune",
+    "file": "assets/portraits/shizune.png",
+    "bytes": 23556
+  },
+  "guy": {
+    "name": "Might Guy",
+    "file": "assets/portraits/guy.png",
+    "bytes": 34684
+  },
+  "asuma": {
+    "name": "Asuma Sarutobi",
+    "file": "assets/portraits/asuma.png",
+    "bytes": 33960
+  },
+  "kurenai": {
+    "name": "Kurenai Yūhi",
+    "file": "assets/portraits/kurenai.png",
+    "bytes": 39430
+  },
+  "zabuza": {
+    "name": "Zabuza Momochi",
+    "file": "assets/portraits/zabuza.png",
+    "bytes": 29068
+  },
+  "haku": {
+    "name": "Haku",
+    "file": "assets/portraits/haku.png",
+    "bytes": 30864
+  },
+  "kushina": {
+    "name": "Kushina Uzumaki",
+    "file": "assets/portraits/kushina.png",
+    "bytes": 50866
+  },
+  "danzo": {
+    "name": "Danzō Shimura",
+    "file": "assets/portraits/danzo.png",
+    "bytes": 18788
+  },
+  "tobirama": {
+    "name": "Tobirama Senju",
+    "file": "assets/portraits/tobirama.png",
+    "bytes": 144518
+  },
+  "hashirama": {
+    "name": "Hashirama Senju",
+    "file": "assets/portraits/hashirama.png",
+    "bytes": 112472
+  },
+  "nagato": {
+    "name": "Nagato",
+    "file": "assets/portraits/nagato.png",
+    "bytes": 15760
+  },
+  "kabuto": {
+    "name": "Kabuto Yakushi",
+    "file": "assets/portraits/kabuto.png",
+    "bytes": 23000
+  },
+  "shisui": {
+    "name": "Shisui Uchiha",
+    "file": "assets/portraits/shisui.png",
+    "bytes": 122594
+  },
+  "killerbee2": {
+    "name": "Killer B",
+    "file": "assets/portraits/killerbee2.png",
+    "bytes": 16258
+  },
+  "mei": {
+    "name": "Mei Terumī",
+    "file": "assets/portraits/mei.png",
+    "bytes": 21582
+  },
+  "a4": {
+    "name": "A (Fourth Raikage)",
+    "file": "assets/portraits/a4.png",
+    "bytes": 24766
+  },
+  "onoki": {
+    "name": "Ōnoki",
+    "file": "assets/portraits/onoki.png",
+    "bytes": 30610
+  },
+  "sasuke2": {
+    "name": "Sasuke Uchiha",
+    "file": "assets/portraits/sasuke2.png",
+    "bytes": 26520
+  }
+}

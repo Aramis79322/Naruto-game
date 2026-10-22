@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07111d">
+  <link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+  <title>NARUTO: SHINOBI LEGACY — Fan Game</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ================= PANTALLA DE CARGA / MENÚ ================= -->
+    <section id="screen-boot" class="screen active">
+      <div class="boot-art"></div>
+      <canvas id="boot-canvas"></canvas>
+      <div class="boot-grid"></div>
+
+      <header class="boot-top">
+        <span class="fan-tag">FAN GAME NO OFICIAL</span>
+        <span class="boot-version">v1.0 · EDICIÓN KONOHA</span>
+      </header>
+
+      <div class="boot-center">
+        <div class="logo-lockup">
+          <div class="logo-jp">ナルト</div>
+          <div class="logo-kicker">NARUTO</div>
+          <h1 class="logo-title">SHINOBI<span>LEGACY</span></h1>
+          <div class="logo-rule"><i></i><b>LA VOLUNTAD DEL FUEGO</b><i></i></div>
+        </div>
+
+        <div id="boot-menu" class="boot-menu">
+          <button id="btn-continue" class="menu-btn menu-btn-continue hidden">
+            <span class="mb-icon">▶</span>
+            <span class="mb-text"><b>CONTINUAR</b><small id="continue-label">PARTIDA GUARDADA</small></span>
+          </button>
+          <button id="btn-story" class="menu-btn menu-btn-primary" disabled>
+            <span class="mb-icon">忍</span>
+            <span class="mb-text"><b>MODO HISTORIA</b><small>CREA TU SHINOBI · VIVE TODOS LOS ARCOS</small></span>
+            <span class="mb-arrow">›</span>
+          </button>
+          <button id="btn-training" class="menu-btn" disabled>
+            <span class="mb-icon">稽</span>
+            <span class="mb-text"><b>ENTRENAMIENTO</b><small>MUNDO LIBRE · COMBATE Y MISIONES</small></span>
+            <span class="mb-arrow">›</span>
+          </button>
+          <div class="boot-mini-row">
+            <button id="btn-codex" class="chip-btn" disabled>CÓDICE</button>
+            <button id="btn-settings" class="chip-btn" disabled>AJUSTES</button>
+            <button id="btn-credits" class="chip-btn" disabled>CRÉDITOS</button>
+          </div>
+        </div>
+
+        <div id="boot-loading" class="boot-loading">
+          <div class="load-track"><div id="load-fill" class="load-fill"></div><div id="load-shine" class="load-shine"></div></div>
+          <div class="load-meta">
+            <span id="load-label">INVOCANDO A LOS SHINOBI...</span>
+            <span id="load-percent">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <footer class="boot-foot">
+        <div class="boot-tip"><span>CONSEJO</span><p id="boot-tip-text">Pulsa ENTER para confirmar. WASD para moverte. E para interactuar.</p></div>
+        <div class="boot-credit">UN HOMENAJE A MASASHI KISHIMOTO</div>
+      </footer>
+    </section>
+
+    <!-- ================= SELECCIÓN DE PERSONAJE ================= -->
+    <section id="screen-select" class="screen">
+      <div class="holo-bg"></div>
+      <canvas id="select-bg-canvas"></canvas>
+      <header class="topbar">
+        <button class="back-btn" data-back="boot">‹ VOLVER</button>
+        <div class="topbar-title">
+          <span class="eyebrow">MODO HISTORIA</span>
+          <h2>ELIGE TU SHINOBI</h2>
+        </div>
+        <div class="mode-pill" id="select-mode-pill">HISTORIA</div>
+      </header>
+
+      <div class="select-layout">
+        <aside class="select-roster-rail">
+          <div class="rail-label">PLANTILLA</div>
+          <div id="roster-strip" class="roster-strip"></div>
+          <div class="rail-hint">Usa <b>↑ ↓</b> o la rueda para cambiar de personaje</div>
+        </aside>
+
+        <div class="select-stage">
+          <div class="stage-rings"><i></i><i></i><i></i></div>
+          <div class="stage-glow"></div>
+          <canvas id="select-preview" width="460" height="600"></canvas>
+          <div class="stage-nameplate">
+            <span id="select-base-label">PERSONAJE BASE</span>
+            <h3 id="select-name">Naruto Uzumaki</h3>
+            <p id="select-title">El Ninja Número Uno Hiperactivo</p>
+          </div>
+          <button id="select-prev" class="stage-arrow stage-prev">‹</button>
+          <button id="select-next" class="stage-arrow stage-next">›</button>
+          <div class="stage-platform"></div>
+        </div>
+
+        <aside class="select-info">
+          <div class="info-tag" id="select-village-tag">KONOHA · PAÍS DEL FUEGO</div>
+          <p class="info-quote" id="select-quote">«No me rindo. Ese es mi nindō.»</p>
+          <p class="info-desc" id="select-desc">Un huérfano que creció bajo las miradas de odio del pueblo...</p>
+          <div id="select-stats" class="stat-grid"></div>
+          <div class="select-loadout">
+            <span>ELEMENTO</span><b id="select-element">Viento</b>
+            <span>JUTSU</span><b id="select-jutsu">Rasengan · Clon de Sombra</b>
+          </div>
+          <div class="select-actions">
+            <button id="btn-select-custom" class="btn btn-ghost">✎ CREAR PERSONAJE</button>
+            <button id="btn-select-confirm" class="btn btn-primary">ELEGIR Y PERSONALIZAR <span>›</span></button>
+          </div>
+          <p class="microcopy">Puedes modificar el aspecto, el color y el origen antes de empezar.</p>
+        </aside>
+      </div>
+
+      <footer class="select-footer">
+        <div class="key-hint"><kbd>↵</kbd> Confirmar</div>
+        <div class="key-hint"><kbd>←</kbd><kbd>→</kbd> Cambiar</div>
+        <div class="key-hint"><kbd>Esc</kbd> Volver</div>
+        <div class="roster-count" id="roster-count">22 shinobi + personaje propio</div>
+      </footer>
+    </section>
+
+    <!-- ================= CREACIÓN DE PERSONAJE ================= -->
+    <section id="screen-create" class="screen">
+      <div class="holo-bg create-bg"></div>
+      <header class="topbar create-topbar">
+        <button class="back-btn" data-back="select">‹ VOLVER</button>
+        <div class="topbar-title">
+          <span class="eyebrow">CREAR PERSONAJE</span>
+          <h2>ASPECTO</h2>
+        </div>
+        <div class="creation-step">PASO <b>2</b> / 3</div>
+      </header>
+
+      <div class="create-layout">
+        <div class="create-panel">
+          <div class="create-tabs" role="tablist">
+            <button class="create-tab active" data-create-tab="aspect">PERSONAJE</button>
+            <button class="create-tab" data-create-tab="color">COLOR</button>
+            <button class="create-tab" data-create-tab="origin">ORIGEN</button>
+          </div>
+          <div class="create-subhead">
+            <span id="create-tab-title">ASPECTO</span>
+            <span class="create-pager" id="create-pager">1 / 8</span>
+          </div>
+          <div id="create-rows" class="create-rows"></div>
+          <div class="create-panel-foot">
+            <button id="btn-create-random" class="btn btn-small btn-ghost">⟳ ALEATORIO</button>
+            <button id="btn-create-reset" class="btn btn-small btn-ghost">RESTABLECER</button>
+          </div>
+        </div>
+
+        <div class="create-preview">
+          <div class="preview-stars"></div>
+          <div class="preview-ring"></div>
+          <canvas id="create-canvas" width="520" height="640"></canvas>
+          <div class="preview-controls">
+            <button id="btn-preview-left" title="Girar">⟲</button>
+            <span>VISTA</span>
+            <button id="btn-preview-right" title="Girar">⟳</button>
+          </div>
+          <div class="create-badge">
+            <span id="create-badge-village">HOJA</span>
+            <b id="create-badge-name">SIN NOMBRE</b>
+            <small id="create-badge-clan">SIN CLAN</small>
+          </div>
+        </div>
+
+        <div class="create-name-panel">
+          <label for="input-name">NOMBRE DEL SHINOBI</label>
+          <input id="input-name" maxlength="18" value="Kaze" autocomplete="off" spellcheck="false">
+          <div class="name-meta">
+            <div><span>ALDEA</span><b id="meta-village">Konoha</b></div>
+            <div><span>CLAN</span><b id="meta-clan">Sin clan</b></div>
+            <div><span>ESTILO</span><b id="meta-style">Equilibrado</b></div>
+          </div>
+          <div class="create-summary">
+            <p id="create-perk">Sin bonus de clan.</p>
+            <div id="create-mini-stats"></div>
+          </div>
+          <div class="create-actions">
+            <button id="btn-create-back" class="btn btn-ghost">‹ ATRÁS</button>
+            <button id="btn-create-confirm" class="btn btn-primary">CONFIRMAR <span>›</span></button>
+          </div>
+        </div>
+      </div>
+
+      <footer class="select-footer">
+        <div class="key-hint"><kbd>←</kbd><kbd>→</kbd> Cambiar opción</div>
+        <div class="key-hint"><kbd>↑</kbd><kbd>↓</kbd> Navegar</div>
+        <div class="key-hint"><kbd>↵</kbd> Confirmar</div>
+      </footer>
+    </section>
+
+    <!-- ================= ELECCIÓN DE ALDEA ================= -->
+    <section id="screen-village" class="screen">
+      <div class="worldmap-layer"></div>
+      <div class="map-vignette"></div>
+      <header class="topbar">
+        <button class="back-btn" data-back="create">‹ VOLVER</button>
+        <div class="topbar-title">
+          <span class="eyebrow">CREAR PERSONAJE</span>
+          <h2>ELIGE TU ALDEA NATAL</h2>
+        </div>
+        <div class="creation-step">PASO <b>3</b> / 3</div>
+      </header>
+
+      <div class="village-layout">
+        <div class="map-stage">
+          <div id="map-pins" class="map-pins"></div>
+          <div class="map-compass">N</div>
+          <div class="map-caption">MAPA DEL MUNDO SHINOBI · ERA DE LA HOJA</div>
+        </div>
+
+        <aside class="village-side">
+          <div class="village-detail">
+            <div class="village-emblem"><canvas id="village-emblem" width="96" height="96"></canvas></div>
+            <span class="eyebrow" id="village-country">PAÍS DEL FUEGO</span>
+            <h2 id="village-name">Aldea Oculta de la Hoja</h2>
+            <div id="village-short" class="village-short">KONOHA</div>
+            <p id="village-desc">La aldea de la Hoja...</p>
+            <div id="village-bonus" class="village-bonus">Afinidad con el Estilo Viento y Fuego.</div>
+            <div class="village-kage"><span>LÍDER</span><b id="village-kage">Hiruzen Sarutobi</b></div>
+          </div>
+          <div class="village-grid" id="village-grid"></div>
+          <button id="btn-village-confirm" class="btn btn-primary btn-wide">COMENZAR EN KONOHA <span>›</span></button>
+          <p class="microcopy">Otras aldeas estarán disponibles en futuras actualizaciones. Por ahora, toda la aventura transcurre en Konoha.</p>
+        </aside>
+      </div>
+      <footer class="select-footer">
+        <div class="key-hint"><kbd>↵</kbd> Confirmar</div>
+        <div class="key-hint"><kbd>Esc</kbd> Volver</div>
+        <div class="map-status" id="map-status">1 aldea disponible · 9 por desbloquear</div>
+      </footer>
+    </section>
+
+    <!-- ================= CUTSCENE ================= -->
+    <section id="screen-cutscene" class="screen cutscene-screen">
+      <canvas id="cutscene-canvas"></canvas>
+      <div class="cutscene-vignette"></div>
+      <div class="letterbox top"></div>
+      <div class="letterbox bottom"></div>
+
+      <div class="cutscene-topline">
+        <div class="cutscene-chapter" id="cutscene-chapter">PRÓLOGO · LA ACADEMIA</div>
+        <button id="btn-skip-cutscene" class="skip-btn">SALTAR ▸▸</button>
+      </div>
+
+      <div id="cutscene-titlecard" class="cutscene-titlecard hidden">
+        <span id="cutscene-title-kicker">KONOHA</span>
+        <h2 id="cutscene-title-text">La Voluntad del Fuego</h2>
+        <div class="titlecard-rule"></div>
+      </div>
+
+      <div id="cutscene-dialogue" class="cutscene-dialogue">
+        <div class="cutscene-portrait-wrap">
+          <canvas id="cutscene-portrait" width="150" height="150"></canvas>
+          <i></i>
+        </div>
+        <div class="cutscene-text-wrap">
+          <div id="cutscene-speaker" class="cutscene-speaker">IRUKA UMINO</div>
+          <p id="cutscene-text"></p>
+          <div class="cutscene-progress" id="cutscene-progress"></div>
+        </div>
+        <button id="btn-cutscene-next" class="cutscene-next">CONTINUAR <span>›</span></button>
+      </div>
+
+      <div class="cutscene-controls">
+        <button id="btn-cutscene-log" class="mini-btn">REGISTRO</button>
+        <button id="btn-cutscene-auto" class="mini-btn">AUTO: OFF</button>
+      </div>
+    </section>
+
+    <!-- ================= MUNDO ABIERTO ================= -->
+    <section id="screen-world" class="screen world-screen">
+      <canvas id="world-canvas"></canvas>
+      <div class="world-vignette"></div>
+
+      <header class="world-hud">
+        <div class="profile-hud" id="profile-hud">
+          <div class="ph-portrait"><canvas id="hud-portrait" width="74" height="74"></canvas><span id="hud-level">1</span></div>
+          <div class="ph-body">
+            <div class="ph-name-row"><b id="hud-name">Kaze</b><span id="hud-rank">GENIN</span></div>
+            <div class="ph-bar xp"><i id="hud-xp-fill"></i></div>
+            <div class="ph-sub"><span id="hud-xp-text">0 / 230 XP</span><span id="hud-ryo">₽ 500</span></div>
+          </div>
+        </div>
+
+        <div class="world-location">
+          <span class="eyebrow">ALDEA OCULTA DE LA HOJA</span>
+          <h2 id="world-place">ACADEMIA NINJA</h2>
+          <div class="world-time"><span id="world-clock">08:00</span><i></i><span id="world-day">DÍA 1</span></div>
+        </div>
+
+        <div class="world-actions">
+          <button id="btn-world-story" class="icon-btn" title="Historia (H)"><span>巻</span><small>HISTORIA</small></button>
+          <button id="btn-world-missions" class="icon-btn" title="Misiones (M)"><span>任</span><small>MISIONES</small></button>
+          <button id="btn-world-journal" class="icon-btn" title="Diario (J)"><span>帳</span><small>DIARIO</small></button>
+          <button id="btn-world-codex" class="icon-btn" title="Códice (C)"><span>典</span><small>CÓDICE</small></button>
+          <button id="btn-world-menu" class="icon-btn" title="Menú (Esc)"><span>≡</span><small>MENÚ</small></button>
+        </div>
+      </header>
+
+      <aside class="quest-tracker">
+        <div class="qt-head"><span>MISIÓN ACTUAL</span><button id="btn-quest-collapse">−</button></div>
+        <div id="quest-body">
+          <h3 id="quest-title">El primer día</h3>
+          <p id="quest-desc">Habla con Iruka-sensei frente a la Academia.</p>
+          <div class="qt-objective"><i></i><span id="quest-objective">Encuentra a Iruka</span></div>
+          <div class="qt-reward" id="quest-reward">Recompensa: 120 XP · ₽ 200</div>
+        </div>
+      </aside>
+
+      <div class="minimap-wrap">
+        <canvas id="minimap" width="220" height="150"></canvas>
+        <div class="minimap-label">KONOHA</div>
+        <div class="minimap-compass">N</div>
+      </div>
+
+      <div id="interact-prompt" class="interact-prompt hidden">
+        <kbd>E</kbd><span id="interact-text">Hablar con Iruka</span>
+      </div>
+
+      <div class="world-controls">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Mover</div>
+        <div><kbd>Shift</kbd> Esquivar</div>
+        <div><kbd>E</kbd> Interactuar</div>
+        <div><kbd>M</kbd> Misiones</div>
+      </div>
+
+      <div class="touch-controls" id="world-touch">
+        <div class="joystick" id="joystick"><div class="joystick-knob" id="joystick-knob"></div></div>
+        <div class="touch-actions">
+          <button id="touch-interact" class="touch-btn touch-e">E</button>
+          <button id="touch-dash" class="touch-btn">⇢</button>
+        </div>
+      </div>
+
+      <div class="world-mode-badge" id="world-mode-badge">MODO HISTORIA</div>
+    </section>
+
+    <!-- ================= TABLERO DE ARCOS ================= -->
+    <section id="screen-story" class="screen panel-screen">
+      <div class="holo-bg"></div>
+      <header class="topbar">
+        <button class="back-btn" data-back="world">‹ VOLVER</button>
+        <div class="topbar-title">
+          <span class="eyebrow">CRÓNICAS DE LA HOJA</span>
+          <h2>MODO HISTORIA</h2>
+        </div>
+        <div class="progress-summary" id="story-progress">0 / 56 ARCOS</div>
+      </header>
+
+      <div class="panel-layout story-layout">
+        <aside class="panel-side">
+          <div class="sis-title">PARTE I · NARUTO</div>
+          <button class="story-part active" data-part="p1"><b>NARUTO</b><span>24 arcos · Academia a Valle del Fin</span><i id="p1-progress">0%</i></button>
+          <div class="sis-title">PARTE II · SHIPPUDEN</div>
+          <button class="story-part" data-part="p2"><b>SHIPPUDEN</b><span>32 arcos · Akatsuki a la Cuarta Guerra</span><i id="p2-progress">0%</i></button>
+          <div class="side-note">
+            <span>✦</span>
+            <p>Todos los arcos incluyen relleno y pueden jugarse en cualquier orden. La dificultad recomendada aparece en cada tarjeta.</p>
+          </div>
+          <div class="legend">
+            <div><i class="dot d"></i>D Fácil</div>
+            <div><i class="dot c"></i>C Medio</div>
+            <div><i class="dot b"></i>B Difícil</div>
+            <div><i class="dot a"></i>A Muy difícil</div>
+            <div><i class="dot s"></i>S Extremo</div>
+          </div>
+        </aside>
+        <div class="panel-main">
+          <div class="story-part-tabs">
+            <button class="story-part active" data-part="p1"><b>NARUTO</b><span>PARTE I · 24 ARCOS</span><i data-part-pct="p1">0%</i></button>
+            <button class="story-part" data-part="p2"><b>SHIPPUDEN</b><span>PARTE II · 32 ARCOS</span><i data-part-pct="p2">0%</i></button>
+          </div>
+          <div class="panel-toolbar">
+            <div class="filter-chips" id="arc-filters">
+              <button class="active" data-rank="all">TODOS</button>
+              <button data-rank="D">D</button><button data-rank="C">C</button>
+              <button data-rank="B">B</button><button data-rank="A">A</button><button data-rank="S">S</button>
+            </div>
+            <span class="panel-counter" id="arc-count">24 arcos</span>
+          </div>
+          <div id="arc-list" class="arc-list"></div>
+        </div>
+        <aside class="detail-drawer" id="arc-detail">
+          <div class="dd-empty">Selecciona un arco para ver el expediente.</div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= TABLERO DE MISIONES ================= -->
+    <section id="screen-missions" class="screen panel-screen">
+      <div class="holo-bg"></div>
+      <header class="topbar">
+        <button class="back-btn" data-back="world">‹ VOLVER</button>
+        <div class="topbar-title">
+          <span class="eyebrow">TABLERO DE LA TORRE</span>
+          <h2>MISIONES</h2>
+        </div>
+        <div class="progress-summary" id="mission-progress">0 COMPLETADAS</div>
+      </header>
+
+      <div class="panel-layout mission-layout">
+        <div class="panel-main">
+          <div class="panel-toolbar">
+            <div class="filter-chips" id="mission-filters">
+              <button class="active" data-rank="all">TODAS</button>
+              <button data-rank="D">D · FÁCIL</button>
+              <button data-rank="C">C · MEDIO</button>
+              <button data-rank="B">B · DIFÍCIL</button>
+              <button data-rank="A">A · MUY DIFÍCIL</button>
+              <button data-rank="S">S · EXTREMO</button>
+            </div>
+            <span class="panel-counter" id="mission-count">20 misiones</span>
+          </div>
+          <div id="mission-list" class="mission-list"></div>
+        </div>
+        <aside class="detail-drawer" id="mission-detail">
+          <div class="dd-empty">Acepta una misión del tablero.</div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= DIARIO ================= -->
+    <section id="screen-journal" class="screen panel-screen">
+      <div class="holo-bg"></div>
+      <header class="topbar">
+        <button class="back-btn" data-back="world">‹ VOLVER</button>
+        <div class="topbar-title">
+          <span class="eyebrow">EXPEDIENTE SHINOBI</span>
+          <h2>DIARIO</h2>
+        </div>
+        <div class="progress-summary" id="journal-rank">GENIN DE LA HOJA</div>
+      </header>
+
+      <div class="journal-layout">
+        <aside class="journal-id">
+          <div class="id-card">
+            <div class="id-top">ALDEA OCULTA DE LA HOJA <span>忍</span></div>
+            <canvas id="journal-portrait" width="300" height="340"></canvas>
+            <div class="id-name"><b id="journal-name">Kaze</b><span id="journal-clan">SIN CLAN</span></div>
+            <div class="id-bottom"><span>N.º <b id="journal-number">0001</b></span><span id="journal-village">KONOHA</span></div>
+          </div>
+          <div class="bandana-showcase">
+            <canvas id="journal-bandana" width="320" height="120"></canvas>
+            <div><span>BANDANA ACTUAL</span><b id="journal-bandana-rank">GENIN</b></div>
+          </div>
+          <div class="id-actions">
+            <button id="btn-journal-save" class="btn btn-small btn-ghost">GUARDAR PARTIDA</button>
+            <button id="btn-journal-menu" class="btn btn-small btn-ghost">MENÚ PRINCIPAL</button>
+          </div>
+        </aside>
+
+        <div class="journal-main">
+          <div class="journal-stats" id="journal-stats"></div>
+          <div class="journal-columns">
+            <div class="journal-box">
+              <div class="jb-head"><span>PROGRESO</span></div>
+              <div id="journal-progress" class="progress-rows"></div>
+            </div>
+            <div class="journal-box">
+              <div class="jb-head"><span>ÚLTIMAS HAZAÑAS</span></div>
+              <div id="journal-history" class="history-list"></div>
+            </div>
+          </div>
+          <div class="journal-box">
+            <div class="jb-head"><span>MEDALLAS DE LA HOJA</span><i id="journal-medals-count">0 / 6</i></div>
+            <div id="journal-medals" class="medal-grid"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CÓDICE ================= -->
+    <section id="screen-codex" class="screen panel-screen">
+      <div class="holo-bg"></div>
+      <header class="topbar">
+        <button class="back-btn" data-back="world">‹ VOLVER</button>
+        <div class="topbar-title">
+          <span class="eyebrow">ARCHIVOS DE LA HOJA</span>
+          <h2>CÓDICE</h2>
+        </div>
+        <div class="codex-tabs">
+          <button class="active" data-codex-tab="village">ALDEAS</button>
+          <button data-codex-tab="ranks">RANGOS</button>
+          <button data-codex-tab="controls">CONTROLES</button>
+        </div>
+      </header>
+
+      <div id="codex-village" class="codex-panel active">
+        <div class="codex-map">
+          <img src="assets/img/world-map.webp" alt="Mapa del mundo shinobi" draggable="false">
+          <div class="codex-map-shade"></div>
+          <div class="codex-map-pins" id="codex-pins"></div>
+        </div>
+        <aside class="codex-info">
+          <span class="eyebrow">LAS CINCO GRANDES ALDEAS Y MÁS ALLÁ</span>
+          <h2>EL MUNDO SHINOBI</h2>
+          <p>Diez aldeas ocultas se reparten el continente. Cinco grandes potencias, cinco aldeas menores y un equilibrio quebradizo que ha estallado en cuatro guerras.</p>
+          <div id="codex-village-list" class="codex-list"></div>
+          <div class="codex-bandana-card">
+            <div class="cbc-title">BANDANAS DE RANGO</div>
+            <p>La bandana no es un adorno: es un juramento. Cada aldea tiene su símbolo; cada rango, su placa.</p>
+            <div id="codex-bandana-canvases" class="bandana-row"></div>
+          </div>
+        </aside>
+      </div>
+
+      <div id="codex-ranks" class="codex-panel">
+        <div class="rank-codex">
+          <div class="rank-codex-head">
+            <span class="eyebrow">ESCALAFÓN SHINOBI</span>
+            <h2>DE GENIN A KAGE</h2>
+            <p>Completa misiones y entrena para ascender. Tu bandana cambia contigo.</p>
+          </div>
+          <div id="rank-codex-list" class="rank-codex-list"></div>
+          <div class="codex-bandana-reference">
+            <div>
+              <span class="eyebrow">REFERENCIA ORIGINAL</span>
+              <h3>Bandanas de las aldeas</h3>
+              <p>Diseño de referencia incluido con este proyecto. Las bandanas jugables se dibujan en tiempo real con los colores y símbolos de cada aldea.</p>
+            </div>
+            <img src="assets/img/bandanas.jpg" alt="Referencia de bandanas ninja">
+          </div>
+        </div>
+      </div>
+
+      <div id="codex-controls" class="codex-panel">
+        <div class="controls-codex">
+          <div class="touch-only-note">
+            <b>TÁCTIL</b>
+            <p>Joystick para moverte · botón E para interactuar · J ataque · K / L jutsus · U definitiva · ⇢ esquiva · botón Ⅱ pausa.</p>
+          </div>
+          <div class="cc-col">
+            <span class="eyebrow">EXPLORACIÓN</span>
+            <h2>MUNDO ABIERTO</h2>
+            <div class="control-row"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>Moverse por Konoha</span></div>
+            <div class="control-row"><kbd>⇧ Shift</kbd><span>Esquivar / correr</span></div>
+            <div class="control-row"><kbd>E</kbd><span>Hablar, aceptar misiones, recoger objetos</span></div>
+            <div class="control-row"><kbd>M</kbd><span>Tablero de misiones</span></div>
+            <div class="control-row"><kbd>H</kbd><span>Crónicas / arcos de historia</span></div>
+            <div class="control-row"><kbd>J</kbd><span>Diario shinobi</span></div>
+            <div class="control-row"><kbd>Esc</kbd><span>Menú del juego</span></div>
+          </div>
+          <div class="cc-col">
+            <span class="eyebrow">COMBATE</span>
+            <h2>ARTE SHINOBI</h2>
+            <div class="control-row"><kbd>J</kbd><span>Combo básico de taijutsu</span></div>
+            <div class="control-row"><kbd>K</kbd><span>Jutsu 1 (consume chakra)</span></div>
+            <div class="control-row"><kbd>L</kbd><span>Jutsu 2 (consume chakra)</span></div>
+            <div class="control-row"><kbd>U</kbd><span>Técnica definitiva (requiere caos)</span></div>
+            <div class="control-row"><kbd>⇧ Shift</kbd><span>Dash con invulnerabilidad breve</span></div>
+            <div class="control-row"><kbd>P</kbd><span>Pausa</span></div>
+            <div class="control-row"><kbd>Espacio</kbd><span>Esquivar / confirmar en menús</span></div>
+          </div>
+          <div class="cc-col">
+            <span class="eyebrow">PROGRESIÓN</span>
+            <h2>EL CAMINO DEL HOKAGE</h2>
+            <div class="cc-note"><b>EXP</b><p>Se gana en misiones, arcos y entrenamiento. Sube tu nivel y mejora tus estadísticas.</p></div>
+            <div class="cc-note"><b>RYŌ</b><p>La moneda de la Hoja. Úsala para desbloquear mejoras cosméticas y recompensas.</p></div>
+            <div class="cc-note"><b>RANGOS</b><p>Genin → Chūnin → Jōnin → ANBU → Kage. Asciende al alcanzar los niveles 4, 8, 12 y 18.</p></div>
+            <div class="cc-note"><b>ARCOS</b><p>Cada arco sigue la historia oficial de Naruto y Shippuden, incluidos los arcos de relleno.</p></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= AJUSTES ================= -->
+    <section id="screen-settings" class="screen panel-screen settings-screen">
+      <div class="holo-bg"></div>
+      <header class="topbar">
+        <button class="back-btn" id="btn-settings-back">‹ VOLVER</button>
+        <div class="topbar-title">
+          <span class="eyebrow">SISTEMA</span>
+          <h2>AJUSTES</h2>
+        </div>
+        <div class="progress-summary">KONOHA · v1.0</div>
+      </header>
+      <div class="settings-layout">
+        <div class="settings-col">
+          <div class="settings-group">
+            <h3>AUDIO</h3>
+            <label class="range-row"><span>Música</span><input id="set-music" type="range" min="0" max="100" value="55"><b id="set-music-val">55%</b></label>
+            <label class="range-row"><span>Efectos</span><input id="set-sfx" type="range" min="0" max="100" value="70"><b id="set-sfx-val">70%</b></label>
+            <label class="toggle-row"><span>Voz de diálogos</span><input id="set-voice" type="checkbox" checked><i></i></label>
+          </div>
+          <div class="settings-group">
+            <h3>JUEGO</h3>
+            <label class="toggle-row"><span>Mostrar consejos</span><input id="set-tips" type="checkbox" checked><i></i></label>
+            <label class="toggle-row"><span>Sacudida de cámara</span><input id="set-shake" type="checkbox" checked><i></i></label>
+            <label class="toggle-row"><span>Controles táctiles</span><input id="set-touch" type="checkbox"><i></i></label>
+            <label class="toggle-row"><span>Saltar animaciones</span><input id="set-fast" type="checkbox"><i></i></label>
+          </div>
+        </div>
+        <div class="settings-col">
+          <div class="settings-group">
+            <h3>PARTIDA</h3>
+            <div class="save-info" id="save-info">No hay ninguna partida guardada.</div>
+            <button id="btn-save-now" class="btn btn-wide btn-ghost">GUARDAR AHORA</button>
+            <button id="btn-reset-save" class="btn btn-wide btn-danger">BORRAR PARTIDA</button>
+          </div>
+          <div class="settings-group">
+            <h3>CONTROLES</h3>
+            <div class="mini-controls">
+              <div><kbd>WASD</kbd><span>Movimiento</span></div>
+              <div><kbd>E</kbd><span>Interactuar</span></div>
+              <div><kbd>J</kbd><span>Atacar</span></div>
+              <div><kbd>K</kbd><span>Jutsu 1</span></div>
+              <div><kbd>L</kbd><span>Jutsu 2</span></div>
+              <div><kbd>U</kbd><span>Definitiva</span></div>
+              <div><kbd>Shift</kbd><span>Dash</span></div>
+              <div><kbd>Esc</kbd><span>Pausa / volver</span></div>
+            </div>
+            <div class="touch-only-note">
+              <b>TÁCTIL</b>
+              <p>Usa el joystick y los botones en pantalla. El botón Ⅱ pausa el combate en cualquier momento.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CRÉDITOS ================= -->
+    <section id="screen-credits" class="screen credit-screen panel-screen">
+      <div class="holo-bg"></div>
+      <header class="topbar">
+        <button class="back-btn" id="btn-credits-back">‹ VOLVER</button>
+        <div class="topbar-title">
+          <span class="eyebrow">EL FINAL DEL CAMINO</span>
+          <h2>CRÉDITOS</h2>
+        </div>
+        <div class="progress-summary">GRACIAS POR JUGAR</div>
+      </header>
+      <div class="credits-layout">
+        <div class="credits-hero">
+          <div class="logo-jp">ありがとう</div>
+          <h2>NARUTO:<br><span>SHINOBI LEGACY</span></h2>
+          <p>Un fan game no oficial creado como homenaje a la obra de Masashi Kishimoto.</p>
+          <div class="credits-leaf"><canvas id="credits-emblem" width="150" height="150"></canvas></div>
+        </div>
+        <div class="credits-cols">
+          <div>
+            <h3>UNIVERSO Y PERSONAJES</h3>
+            <p>Masashi Kishimoto<br>Shueisha · Shōnen Jump<br>Studio Pierrot · Naruto</p>
+            <h3>RETRATOS</h3>
+            <p>Naruto Wiki (Fandom)<br>Con fines ilustrativos no comerciales.</p>
+          </div>
+          <div>
+            <h3>ARTE Y CÓDIGO</h3>
+            <p>Sprites chibi, escenarios,<br>bandanas y efectos<br>generados proceduralmente.</p>
+            <h3>MÚSICA Y SONIDO</h3>
+            <p>Web Audio API<br>Composición procedural original.</p>
+          </div>
+          <div>
+            <h3>INSPIRACIÓN</h3>
+            <p>Dragon Ball Xenoverse<br>Naruto Shippuden: Ultimate Ninja Storm</p>
+            <h3>AGRADECIMIENTOS</h3>
+            <p>A todos los que crecieron<br>soñando con ser Hokage.</p>
+          </div>
+        </div>
+        <p class="credits-legal" id="credits-legal">NARUTO: SHINOBI LEGACY es un fan game no oficial...</p>
+      </div>
+    </section>
+
+    <!-- ================= COMBATE ================= -->
+    <section id="screen-battle" class="screen battle-screen">
+      <canvas id="battle-canvas"></canvas>
+      <div class="world-vignette"></div>
+
+      <div class="battle-hud">
+        <div class="battle-player">
+          <div class="bp-top">
+            <div class="bp-portrait"><canvas id="battle-portrait" width="64" height="64"></canvas></div>
+            <div class="bp-name"><b id="battle-player-name">Kaze</b><span id="battle-player-rank">GENIN · NIVEL 1</span></div>
+          </div>
+          <div class="battle-bar hp"><i id="battle-hp"></i></div>
+          <div class="bar-label"><span>VIDA</span><span id="battle-hp-text">120 / 120</span></div>
+          <div class="battle-bar chakra"><i id="battle-chakra"></i></div>
+          <div class="bar-label"><span>CHAKRA</span><span id="battle-chakra-text">100 / 100</span></div>
+          <div class="battle-bar ult"><i id="battle-ult"></i></div>
+          <div class="bar-label"><span>CAOS</span><span id="battle-ult-text">0%</span></div>
+        </div>
+
+        <div class="battle-objective">
+          <span class="eyebrow" id="battle-kicker">MISIÓN DE RANGO D</span>
+          <h2 id="battle-title">EL PRIMER DÍA</h2>
+          <p id="battle-subtitle">Elimina a todos los enemigos</p>
+        </div>
+
+        <div class="battle-bossbar hidden" id="battle-boss-wrap">
+          <div class="boss-top"><span>JEFE</span><b id="battle-boss-name">MIZUKI</b></div>
+          <div class="battle-bar"><i id="battle-boss-hp"></i></div>
+        </div>
+      </div>
+
+      <div class="battle-combo hidden" id="battle-combo"><b id="battle-combo-count">0</b><span>COMBO</span></div>
+      <div class="battle-warning hidden" id="battle-warning">¡CUIDADO!</div>
+      <div class="battle-msg" id="battle-msg"></div>
+
+      <div class="battle-skills">
+        <button class="skill-btn" id="battle-skill-1" data-action="jutsu1"><kbd>K</kbd><span>術</span><b id="skill-1-label">JUTSU 1</b><i class="cooldown hidden"></i></button>
+        <button class="skill-btn" id="battle-skill-2" data-action="jutsu2"><kbd>L</kbd><span>術</span><b id="skill-2-label">JUTSU 2</b><i class="cooldown hidden"></i></button>
+        <button class="skill-btn" id="battle-skill-3" data-action="dash"><kbd>⇧</kbd><span>瞬</span><b>ESQUIVA</b><i class="cooldown hidden"></i></button>
+        <button class="skill-btn ult" id="battle-skill-4" data-action="ultimate"><kbd>U</kbd><span>奥</span><b id="skill-4-label">DEFINITIVA</b><i class="cooldown hidden"></i></button>
+      </div>
+
+      <div class="battle-controls">
+        <div><kbd>WASD</kbd> Mover</div>
+        <div><kbd>J</kbd> Combo</div>
+        <div><kbd>K</kbd><kbd>L</kbd> Jutsu</div>
+        <div><kbd>U</kbd> Definitiva</div>
+        <div><kbd>Shift</kbd> Esquiva</div>
+        <div><kbd>P</kbd> Pausa</div>
+      </div>
+
+      <button id="btn-battle-pause" class="battle-pause" title="Pausa">Ⅱ</button>
+
+      <div class="battle-mobile" id="battle-touch">
+        <div class="joystick" id="battle-joystick"><div class="joystick-knob" id="battle-knob"></div></div>
+        <div class="touch-actions">
+          <button class="touch-skill" data-action="jutsu1">K</button>
+          <button class="touch-skill" data-action="jutsu2">L</button>
+          <button class="touch-skill ult" data-action="ultimate">U</button>
+          <button class="touch-btn" data-action="attack">J</button>
+          <button class="touch-btn" data-action="dash">⇢</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= RESULTADO DE COMBATE ================= -->
+    <section id="screen-result" class="screen result-screen">
+      <div class="result-bg"></div>
+      <div class="result-rays"></div>
+      <div class="result-card">
+        <div class="result-kicker" id="result-kicker">MISIÓN COMPLETADA</div>
+        <div class="result-rank" id="result-rank">S</div>
+        <h2 id="result-title">VICTORIA</h2>
+        <p id="result-subtitle">La Voluntad del Fuego prevalece.</p>
+        <div class="result-rewards" id="result-rewards"></div>
+        <div class="result-stats" id="result-stats"></div>
+        <div class="result-actions">
+          <button id="btn-result-continue" class="btn btn-primary">VOLVER A KONOHA <span>›</span></button>
+          <button id="btn-result-retry" class="btn btn-ghost">REPETIR</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= MODALES ================= -->
+    <div id="modal-layer" class="modal-layer hidden">
+
+      <div id="dialogue-modal" class="modal dialogue-modal hidden">
+        <div class="dialogue-box">
+          <div class="dialogue-portrait-wrap">
+            <canvas id="dialogue-portrait" width="190" height="190"></canvas>
+            <span id="dialogue-affil">KONOHA</span>
+          </div>
+          <div class="dialogue-content">
+            <div class="dialogue-name" id="dialogue-name">IRUKA UMINO</div>
+            <div class="dialogue-role" id="dialogue-role">SENSEI DE LA ACADEMIA</div>
+            <p id="dialogue-text"></p>
+            <div id="dialogue-options" class="dialogue-options"></div>
+          </div>
+          <button id="dialogue-close" class="modal-close">✕</button>
+        </div>
+      </div>
+
+      <div id="pause-modal" class="modal pause-modal hidden">
+        <div class="pause-card">
+          <span class="eyebrow">PAUSA</span>
+          <h2>EL FUEGO SIGUE ARDIENDO</h2>
+          <div class="pause-menu">
+            <button id="btn-pause-resume" class="btn btn-primary">CONTINUAR</button>
+            <button id="btn-pause-save" class="btn btn-ghost">GUARDAR PARTIDA</button>
+            <button id="btn-pause-settings" class="btn btn-ghost">AJUSTES</button>
+            <button id="btn-pause-menu" class="btn btn-ghost">MENÚ PRINCIPAL</button>
+          </div>
+          <p class="microcopy">Tu progreso se guarda automáticamente al completar misiones y arcos.</p>
+        </div>
+      </div>
+
+      <div id="map-modal" class="modal map-modal hidden">
+        <div class="map-card">
+          <header><span class="eyebrow">MAPA DE KONOHA</span><h2>ALDEA OCULTA DE LA HOJA</h2><button id="map-close" class="modal-close">✕</button></header>
+          <canvas id="big-map" width="900" height="540"></canvas>
+          <div class="map-legend">
+            <span><i class="lg-academy"></i>Academia</span>
+            <span><i class="lg-tower"></i>Torre del Hokage</span>
+            <span><i class="lg-shop"></i>Ichiraku</span>
+            <span><i class="lg-hospital"></i>Hospital</span>
+            <span><i class="lg-gate"></i>Puerta</span>
+            <span><i class="lg-training"></i>Entrenamiento</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="confirm-modal" class="modal confirm-modal hidden">
+        <div class="confirm-card">
+          <span class="eyebrow" id="confirm-kicker">CONFIRMAR</span>
+          <h2 id="confirm-title">¿Estás seguro?</h2>
+          <p id="confirm-text">Esta acción no se puede deshacer.</p>
+          <div class="confirm-actions">
+            <button id="confirm-cancel" class="btn btn-ghost">CANCELAR</button>
+            <button id="confirm-ok" class="btn btn-danger">CONFIRMAR</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="reward-modal" class="modal reward-modal hidden">
+        <div class="reward-card">
+          <span class="eyebrow">NUEVO RANGO SHINOBI</span>
+          <canvas id="reward-bandana" width="380" height="150"></canvas>
+          <h2 id="reward-title">CHŪNIN</h2>
+          <p id="reward-text">La Hoja reconoce tu valor.</p>
+          <button id="reward-ok" class="btn btn-primary">CONTINUAR</button>
+        </div>
+      </div>
+
+      <div id="pause-battle-modal" class="modal pause-modal hidden">
+        <div class="pause-card">
+          <span class="eyebrow">COMBATE EN PAUSA</span>
+          <h2>RECUPERA EL ALIENTO</h2>
+          <div class="pause-menu">
+            <button id="btn-battle-resume" class="btn btn-primary">CONTINUAR</button>
+            <button id="btn-battle-settings" class="btn btn-ghost">AJUSTES</button>
+            <button id="btn-battle-retreat" class="btn btn-ghost">RETIRARSE</button>
+          </div>
+          <p class="microcopy">Si te retiras, no perderás tu progreso, pero la misión quedará incompleta.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="toasts" class="toasts"></div>
+    <div id="transition" class="transition"><div class="transition-mark">忍</div></div>
+  </div>
+
+  <script src="js/data.js"></script>
+  <script src="js/art.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/story.js"></script>
+  <script src="js/battle.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
