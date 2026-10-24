@@ -726,7 +726,7 @@
     'En MODO HISTORIA desbloqueas recompensas únicas por cada arco.'
   ];
 
-  const CREDITS = 'NARUTO: SHINOBI LEGACY es un fan game no oficial creado como homenaje a la obra de Masashi Kishimoto. Los personajes y el universo pertenecen a sus respectivos autores. Retratos de personajes obtenidos de Naruto Wiki (Fandom) con fines ilustrativos. Sprites, escenarios y música generados proceduralmente para este proyecto.';
+  const CREDITS = 'NARUTO: SHINOBI LEGACY es un fan game no oficial creado como homenaje a la obra de Masashi Kishimoto. Los personajes y el universo pertenecen a sus respectivos autores. Retratos de personajes obtenidos de Naruto Wiki (Fandom) con fines ilustrativos. Sprites, escenarios y música generados proceduralmente para este proyecto. Modelos 3D de Sketchfab: Naruto y Sasuke por ronildo.facanha (CC BY 4.0); aldea de Konoha por kyrox (CC BY 4.0); Kakashi por Tigerar1 (Sketchfab Standard). Motor 3D: Three.js r128 (MIT).';
 
   window.GameData = {
     RANKS, SHINOBI_RANKS, VILLAGES, CHARACTERS, CHAR_MAP, ENEMIES,

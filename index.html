@@ -35,6 +35,11 @@
             <span class="mb-icon">▶</span>
             <span class="mb-text"><b>CONTINUAR</b><small id="continue-label">PARTIDA GUARDADA</small></span>
           </button>
+          <button id="btn-world3d" class="menu-btn menu-btn-3d" disabled>
+            <span class="mb-icon mb-icon-3d">3D</span>
+            <span class="mb-text"><b>JUGAR KONOHA 3D</b><small>TERCERA PERSONA · MUNDO LIBRE · DEMO SIN SERVIDOR</small></span>
+            <span class="mb-arrow">›</span>
+          </button>
           <button id="btn-story" class="menu-btn menu-btn-primary" disabled>
             <span class="mb-icon">忍</span>
             <span class="mb-text"><b>MODO HISTORIA</b><small>CREA TU SHINOBI · VIVE TODOS LOS ARCOS</small></span>
@@ -58,6 +63,11 @@
             <span id="load-label">INVOCANDO A LOS SHINOBI...</span>
             <span id="load-percent">0%</span>
           </div>
+          <button id="btn-boot-3d" class="boot-3d-quick" type="button" disabled>
+            <span class="bq-icon">3D</span>
+            <span class="bq-text"><b>JUGAR KONOHA 3D</b><small>Demo libre · Tercera persona · Sin servidor</small></span>
+            <span class="bq-arrow">›</span>
+          </button>
         </div>
       </div>
 
@@ -299,6 +309,7 @@
         </div>
 
         <div class="world-actions">
+          <button id="btn-world-3d" class="icon-btn icon-btn-3d" title="Explorar Konoha en 3D (V)"><span>3D</span><small>KONOHA 3D</small></button>
           <button id="btn-world-story" class="icon-btn" title="Historia (H)"><span>巻</span><small>HISTORIA</small></button>
           <button id="btn-world-missions" class="icon-btn" title="Misiones (M)"><span>任</span><small>MISIONES</small></button>
           <button id="btn-world-journal" class="icon-btn" title="Diario (J)"><span>帳</span><small>DIARIO</small></button>
@@ -343,6 +354,104 @@
       </div>
 
       <div class="world-mode-badge" id="world-mode-badge">MODO HISTORIA</div>
+    </section>
+
+    <!-- ================= MUNDO 3D · KONOHA ================= -->
+    <section id="screen-world3d" class="screen world3d-screen">
+      <canvas id="w3d-canvas"></canvas>
+      <div id="w3d-tint" class="w3d-tint"></div>
+      <div class="world-vignette"></div>
+
+      <header class="world-hud w3d-hud">
+        <div class="profile-hud w3d-profile-hud" id="w3d-profile-hud">
+          <div class="ph-portrait"><canvas id="w3d-hud-portrait" width="74" height="74"></canvas><span id="w3d-hud-level">1</span></div>
+          <div class="ph-body">
+            <div class="ph-name-row"><b id="w3d-hud-name">Naruto Uzumaki</b><span id="w3d-hud-rank">GENIN</span></div>
+            <div class="ph-bar xp"><i id="w3d-hud-xp-fill"></i></div>
+            <div class="ph-sub"><span id="w3d-hud-xp-text">0 / 230 XP</span><span id="w3d-hud-ryo">₽ 500</span></div>
+          </div>
+        </div>
+
+        <div class="world-location w3d-location">
+          <span class="eyebrow">ALDEA OCULTA DE LA HOJA · MUNDO 3D</span>
+          <h2 id="w3d-place">PLAZA CENTRAL</h2>
+          <div class="world-time"><span id="w3d-clock">08:00</span><i></i><span id="w3d-day">DÍA 1</span></div>
+        </div>
+
+        <div class="world-actions w3d-actions">
+          <button id="btn-w3d-story" class="icon-btn" title="Historia (H)"><span>巻</span><small>HISTORIA</small></button>
+          <button id="btn-w3d-missions" class="icon-btn" title="Misiones (M)"><span>任</span><small>MISIONES</small></button>
+          <button id="btn-w3d-codex" class="icon-btn" title="Códice (C)"><span>典</span><small>CÓDICE</small></button>
+          <button id="btn-w3d-view" class="icon-btn" title="Cambiar vista"><span>視</span><small>VISTA</small></button>
+          <button id="btn-w3d-menu" class="icon-btn" title="Menú (Esc)"><span>≡</span><small>MENÚ</small></button>
+        </div>
+      </header>
+
+      <div class="w3d-scrolls" id="w3d-scrolls"><i>巻</i><span>PERGAMINOS</span><b>0 / 8</b></div>
+
+      <aside class="quest-tracker w3d-quest-tracker" id="w3d-quest-tracker">
+        <div class="qt-head"><span>MISIÓN ACTUAL</span><button id="btn-w3d-quest-collapse">−</button></div>
+        <div id="w3d-quest-body">
+          <h3 id="w3d-quest-title">El primer día</h3>
+          <p id="w3d-quest-desc">Habla con Iruka-sensei frente a la Academia.</p>
+          <div class="qt-objective"><i></i><span id="w3d-quest-objective">Encuentra a Iruka</span></div>
+        </div>
+      </aside>
+
+      <div class="minimap-wrap w3d-minimap-wrap">
+        <canvas id="w3d-minimap" width="220" height="150"></canvas>
+        <div class="minimap-label">KONOHA · 3D</div>
+      </div>
+      <div class="w3d-compass" id="w3d-compass">N</div>
+
+      <div id="w3d-prompt" class="interact-prompt hidden">
+        <kbd id="w3d-prompt-key">E</kbd><span id="w3d-prompt-text">Hablar con Iruka</span>
+      </div>
+
+      <div class="world-controls w3d-controls">
+        <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Mover</div>
+        <div><kbd>Ratón</kbd> Cámara</div>
+        <div><kbd>Shift</kbd> Correr</div>
+        <div><kbd>Espacio</kbd> Saltar</div>
+        <div><kbd>E</kbd> Interactuar</div>
+        <div><kbd>V</kbd> Vista</div>
+        <div><kbd>Esc</kbd> Menú</div>
+      </div>
+
+      <div class="touch-controls w3d-touch" id="w3d-touch">
+        <div class="w3d-look" id="w3d-look"></div>
+        <div class="joystick" id="w3d-joystick"><div class="joystick-knob" id="w3d-joystick-knob"></div></div>
+        <div class="touch-actions w3d-touch-actions">
+          <button id="w3d-jump" class="touch-btn w3d-touch-jump" title="Saltar">↑</button>
+          <button id="w3d-interact" class="touch-btn touch-e" title="Interactuar">E</button>
+        </div>
+      </div>
+
+      <div class="world-mode-badge w3d-mode-badge" id="w3d-mode-badge">EXPLORACIÓN LIBRE</div>
+
+      <div id="w3d-loading" class="w3d-overlay w3d-loading">
+        <div class="w3d-load-card">
+          <span class="eyebrow">MODO EXPLORACIÓN · TERCERA PERSONA</span>
+          <h2 class="w3d-load-title">KONOHA <span>3D</span></h2>
+          <p class="w3d-load-copy">La aldea cobra vida. Explora sus calles, encuentra los ocho pergaminos y conversa con sus shinobi.</p>
+          <div class="load-track w3d-load-track"><div id="w3d-load-fill" class="load-fill"></div></div>
+          <div class="load-meta"><span id="w3d-load-label">PREPARANDO EL MOTOR 3D...</span><span id="w3d-load-percent">0%</span></div>
+          <p class="w3d-load-tip"><kbd>WASD</kbd> mover · <kbd>Ratón</kbd> cámara · <kbd>E</kbd> interactuar · <kbd>Espacio</kbd> saltar</p>
+        </div>
+      </div>
+
+      <div id="w3d-error" class="w3d-overlay w3d-error hidden">
+        <div class="w3d-error-card">
+          <span class="eyebrow">NO SE PUDO ABRIR KONOHA 3D</span>
+          <h2>LA PUERTA SIGUE CERRADA</h2>
+          <p id="w3d-error-text">No se pudieron cargar los modelos 3D.</p>
+          <div class="w3d-error-actions">
+            <button id="w3d-error-retry" class="btn btn-primary">REINTENTAR</button>
+            <button id="w3d-error-back" class="btn btn-ghost">VOLVER</button>
+          </div>
+          <p class="w3d-error-hint">Los modelos 3D están integrados en el juego: puedes abrir <b>index.html</b> directamente. Si el error continúa, recarga la página o comprueba que tu navegador tenga WebGL activado.</p>
+        </div>
+      </div>
     </section>
 
     <!-- ================= TABLERO DE ARCOS ================= -->
@@ -598,6 +707,8 @@
             <label class="toggle-row"><span>Sacudida de cámara</span><input id="set-shake" type="checkbox" checked><i></i></label>
             <label class="toggle-row"><span>Controles táctiles</span><input id="set-touch" type="checkbox"><i></i></label>
             <label class="toggle-row"><span>Saltar animaciones</span><input id="set-fast" type="checkbox"><i></i></label>
+            <label class="toggle-row"><span>Rendimiento 3D</span><input id="set-low3d" type="checkbox"><i></i></label>
+            <p class="microcopy">Reduce la resolución y desactiva nubes en Konoha 3D. Recomendado para equipos modestos.</p>
           </div>
         </div>
         <div class="settings-col">
@@ -652,6 +763,8 @@
             <p>Masashi Kishimoto<br>Shueisha · Shōnen Jump<br>Studio Pierrot · Naruto</p>
             <h3>RETRATOS</h3>
             <p>Naruto Wiki (Fandom)<br>Con fines ilustrativos no comerciales.</p>
+            <h3>MODELOS 3D · SKETCHFAB</h3>
+            <p>Naruto y Sasuke: ronildo.facanha<br>Licencia CC BY 4.0<br>Aldea de Konoha: kyrox<br>Licencia CC BY 4.0<br>Kakashi: Tigerar1<br>Licencia Sketchfab Standard</p>
           </div>
           <div>
             <h3>ARTE Y CÓDIGO</h3>
@@ -664,6 +777,8 @@
             <p>Dragon Ball Xenoverse<br>Naruto Shippuden: Ultimate Ninja Storm</p>
             <h3>AGRADECIMIENTOS</h3>
             <p>A todos los que crecieron<br>soñando con ser Hokage.</p>
+            <h3>MOTOR 3D</h3>
+            <p>Three.js r128 · MIT<br>GLTFLoader · SkeletonUtils<br>Modelos optimizados para este proyecto.</p>
           </div>
         </div>
         <p class="credits-legal" id="credits-legal">NARUTO: SHINOBI LEGACY es un fan game no oficial...</p>
@@ -786,6 +901,22 @@
         </div>
       </div>
 
+      <div id="pause-3d-modal" class="modal pause-modal hidden">
+        <div class="pause-card pause-card-3d">
+          <span class="eyebrow">PAUSA · MUNDO 3D</span>
+          <h2>KONOHA EN TUS MANOS</h2>
+          <div class="pause-menu">
+            <button id="btn-3d-resume" class="btn btn-primary">CONTINUAR</button>
+            <button id="btn-3d-save" class="btn btn-ghost">GUARDAR PARTIDA</button>
+            <button id="btn-3d-settings" class="btn btn-ghost">AJUSTES</button>
+            <button id="btn-3d-credits" class="btn btn-ghost">CRÉDITOS</button>
+            <button id="btn-3d-2d" class="btn btn-ghost">VOLVER AL MUNDO 2D</button>
+            <button id="btn-3d-menu" class="btn btn-ghost">MENÚ PRINCIPAL</button>
+          </div>
+          <p class="microcopy" id="w3d-pause-note">Tu posición y los pergaminos encontrados se guardan en la partida.</p>
+        </div>
+      </div>
+
       <div id="map-modal" class="modal map-modal hidden">
         <div class="map-card">
           <header><span class="eyebrow">MAPA DE KONOHA</span><h2>ALDEA OCULTA DE LA HOJA</h2><button id="map-close" class="modal-close">✕</button></header>
@@ -841,12 +972,16 @@
     <div id="transition" class="transition"><div class="transition-mark">忍</div></div>
   </div>
 
+  <script src="assets/vendor/three/three.min.js"></script>
+  <script src="assets/vendor/three/GLTFLoader.js"></script>
+  <script src="assets/vendor/three/SkeletonUtils.js"></script>
   <script src="js/data.js"></script>
   <script src="js/art.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/story.js"></script>
   <script src="js/battle.js"></script>
   <script src="js/world.js"></script>
+  <script src="js/konoha3d.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

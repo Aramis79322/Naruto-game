@@ -43,6 +43,39 @@
   let saveTimer = null;
   let unlockDone = false;
 
+  /* ---------------- Konoha 3D ---------------- */
+  const W3D_NPC_POS = {
+    iruka: [-52, 0], hokage: [-12, 12], shikamaru: [12, 34], sakura: [-28, 21],
+    kakashi: [5, 28], rocklee: [18, 30], hinata: [-22, 53], teuchi: [-34, 34],
+    konohamaru: [-22, 8], sasuke: [-37, -33], gate: [-65, 51], kiba: [-10, 58],
+    shino: [-1, 62], ino: [-27, 64], choji: [-19, 66]
+  };
+  const W3D_AREAS = [
+    { name: 'ACADEMIA NINJA', x: -50, z: 0, r: 25 },
+    { name: 'TORRE DEL HOKAGE', x: -12, z: 12, r: 20 },
+    { name: 'PLAZA CENTRAL', x: -27.7, z: 0, r: 18 },
+    { name: 'ICHIRAKU RAMEN', x: -34, z: 34, r: 12 },
+    { name: 'CAMPO DE ENTRENAMIENTO 3', x: 12, z: 30, r: 20 },
+    { name: 'MERCADO DE KONOHA', x: -20, z: 55, r: 22 },
+    { name: 'PUERTA DE KONOHA', x: -65, z: 51, r: 18 },
+    { name: 'MONUMENTO DE LOS HOKAGE', x: 30, z: -10, r: 45 },
+    { name: 'BOSQUE DE KONOHA', x: -40, z: -35, r: 25 }
+  ];
+  const W3D_VIEWS = [
+    { dist: 3.8, label: 'CERCA' },
+    { dist: 5.6, label: 'MEDIA' },
+    { dist: 8.6, label: 'LEJOS' }
+  ];
+  const W3D_MAX_SCROLLS = 8;
+  let world3dActive = false;
+  let battleReturn3d = false;
+  let panelReturnMode = 'world';
+  let w3dViewIndex = 1;
+  let w3dScrolls = { found: 0, total: W3D_MAX_SCROLLS };
+  let w3dNpcById = {};
+  let w3dArea = 'PLAZA CENTRAL';
+  let mapReturn3d = false;
+
   /* ---------------- Utilidades ---------------- */
   function escapeHTML(value) {
     return String(value == null ? '' : value)
@@ -139,7 +172,7 @@
 
   /* ---------------- Ajustes y guardado ---------------- */
   function defaultSettings() {
-    return { music: 0.55, sfx: 0.7, voice: true, tips: true, shake: true, touch: false, fast: false };
+    return { music: 0.55, sfx: 0.7, voice: true, tips: true, shake: true, touch: false, fast: false, low3d: false };
   }
 
   function loadSettings() {
@@ -169,6 +202,10 @@
     document.body.classList.toggle('touch', !!settings.touch);
     document.body.classList.toggle('show-touch', !!settings.touch);
     window.__reduceShake = !settings.shake;
+    if (window.Konoha3D) {
+      if (window.Konoha3D.setReduced) window.Konoha3D.setReduced(!!settings.low3d);
+      if (window.Konoha3D.setTouchMode) window.Konoha3D.setTouchMode(!!settings.touch);
+    }
   }
 
   function normalizeState(raw) {
@@ -181,10 +218,12 @@
     s.timeMinutes = typeof s.timeMinutes === 'number' ? s.timeMinutes : 8 * 60;
     s.day = Math.max(1, s.day || 1);
     s.worldPos = s.worldPos && typeof s.worldPos.x === 'number' ? s.worldPos : null;
+    s.world3dPos = s.world3dPos && typeof s.world3dPos.x === 'number' ? s.world3dPos : null;
     s.progress = s.progress || {};
     s.progress.arcs = Array.isArray(s.progress.arcs) ? s.progress.arcs : [];
     s.progress.missions = Array.isArray(s.progress.missions) ? s.progress.missions : [];
     s.progress.collectibles = Array.isArray(s.progress.collectibles) ? s.progress.collectibles : [];
+    s.progress.collectibles3d = Array.isArray(s.progress.collectibles3d) ? s.progress.collectibles3d : [];
     s.progress.history = Array.isArray(s.progress.history) ? s.progress.history : [];
     s.progress.tutorialStage = typeof s.progress.tutorialStage === 'number' ? s.progress.tutorialStage : 0;
     s.progress.introSeen = !!s.progress.introSeen;
@@ -225,8 +264,15 @@
 
   function saveGame(silent) {
     if (!state) return false;
+    /* La exploración 3D desde el menú es una demo: nunca sobrescribe una partida. */
+    if (state.demo) {
+      if (!silent) toast('Modo demo: esta exploración no se guarda. Crea un shinobi para conservar tu progreso.', '', '3D');
+      return false;
+    }
     state.lastPlayed = Date.now();
-    if (window.World && World.isActive && World.isActive() && World.getPlayer) {
+    if (window.Konoha3D && window.Konoha3D.isActive && window.Konoha3D.isActive()) {
+      syncWorld3DPosition();
+    } else if (window.World && World.isActive && World.isActive() && World.getPlayer) {
       const p = World.getPlayer();
       if (p) state.worldPos = { x: p.x, y: p.y };
       state.timeMinutes = World.getState() ? World.getState().timeMinutes : state.timeMinutes;
@@ -300,7 +346,8 @@
       if (toastHolder) toastHolder.innerHTML = '';
     }
     currentScreen = id;
-    document.body.classList.toggle('in-game', id === 'world' || id === 'battle' || id === 'result' || id === 'cutscene');
+    document.body.classList.toggle('in-game', id === 'world' || id === 'world3d' || id === 'battle' || id === 'result' || id === 'cutscene');
+    document.body.classList.toggle('mode-3d', id === 'world3d');
     if (id === 'boot') {
       startBootLoop();
       refreshContinue();
@@ -308,7 +355,7 @@
         const load = $('boot-loading'), menu = $('boot-menu');
         if (load) load.classList.add('hidden');
         if (menu) menu.classList.remove('hidden');
-        ['btn-story', 'btn-training', 'btn-codex', 'btn-settings', 'btn-credits'].forEach(function (btnId) {
+        ['btn-story', 'btn-training', 'btn-world3d', 'btn-codex', 'btn-settings', 'btn-credits'].forEach(function (btnId) {
           const b = $(btnId); if (b) b.disabled = false;
         });
       }
@@ -348,6 +395,362 @@
     updateWorldHUD();
     updateQuestTracker();
     startOrResumeWorld();
+  }
+
+  /* ---------------- Konoha 3D · estado y arranque ---------------- */
+  function formatGameClock(minutes) {
+    let total = Math.floor(Number(minutes) || 0) % 1440;
+    if (total < 0) total += 1440;
+    return String(Math.floor(total / 60)).padStart(2, '0') + ':' + String(total % 60).padStart(2, '0');
+  }
+
+  function buildDemo3DState() {
+    const base = charData('naruto');
+    if (!base) return null;
+    const clanId = 'uzumaki', styleId = 'balance';
+    const clan = clanData(clanId), style = styleData(styleId);
+    const art = clone(base.art);
+    art.height = art.height || 'media';
+    art.body = art.body || art.build || 'normal';
+    art.build = art.body;
+    art.villageSymbol = 'leaf';
+    if (!art.accessory) art.accessory = 'none';
+    if (!art.hair2) art.hair2 = shade(art.hair || '#f2c53d', -38);
+    return normalizeState({
+      version: 1,
+      mode: 'training',
+      demo: true,
+      createdAt: Date.now(),
+      lastPlayed: Date.now(),
+      profile: {
+        name: base.name,
+        baseId: 'naruto',
+        village: 'konoha',
+        villageName: 'Aldea Oculta de la Hoja',
+        clan: clanId,
+        clanName: clan.name,
+        style: styleId,
+        styleName: style.name,
+        title: base.title,
+        role: base.role,
+        element: base.element,
+        level: 1,
+        xp: 0,
+        ryo: 500,
+        rank: 'genin',
+        stats: computeStats(base.stats, clanId, styleId),
+        jutsu: clone(base.jutsu),
+        ultimate: clone(base.ultimate),
+        art: art,
+        heightScale: heightScaleFor('media'),
+        quote: base.quote,
+        bio: base.bio,
+        idNumber: 'DEMO-3D'
+      },
+      timeMinutes: 8 * 60,
+      day: 1,
+      worldPos: null,
+      world3dPos: null,
+      progress: {
+        arcs: [], missions: [], collectibles: [], collectibles3d: [], history: [],
+        tutorialStage: 0, introSeen: true, trainingWon: true, lastRamenDay: 0
+      },
+      stats: { victories: 0, defeats: 0, totalXp: 0, totalRyo: 0, playSeconds: 0 }
+    });
+  }
+
+  function buildWorld3DNpcs() {
+    const defs = [];
+    const list = window.World && window.World.npcData ? window.World.npcData : [];
+    list.forEach(function (npc) {
+      if (!npc || npc.id === 'sasuke') return;
+      const pos = W3D_NPC_POS[npc.id];
+      if (!pos) return;
+      defs.push(Object.assign({}, npc, { x: pos[0], z: pos[1] }));
+    });
+    const baseId = state && state.profile ? state.profile.baseId : 'naruto';
+    const playerModel = baseId === 'sasuke' ? 'sasuke' : 'naruto';
+    const rivalId = playerModel === 'sasuke' ? 'naruto' : 'sasuke';
+    const rival = charData(rivalId);
+    if (rival) {
+      const pos = W3D_NPC_POS.sasuke || [-37, -33];
+      defs.push({
+        id: rivalId, name: rival.name, role: rival.role || 'Shinobi de la Hoja',
+        portrait: rival.portrait, art: rival.art, marker: 'spar',
+        x: pos[0], z: pos[1]
+      });
+    }
+    return defs;
+  }
+
+  function syncWorld3DPosition() {
+    if (!state || !window.Konoha3D || !window.Konoha3D.isActive()) return;
+    const p = window.Konoha3D.getPlayerState();
+    if (p) state.world3dPos = { x: p.x, y: p.y, z: p.z, rot: p.rot };
+    const clock = window.Konoha3D.getTime ? window.Konoha3D.getTime() : null;
+    if (clock) {
+      state.timeMinutes = clock.minutes;
+      state.day = clock.day;
+    }
+  }
+
+  function startKonoha3D(opts) {
+    opts = opts || {};
+    if (!window.Konoha3D) {
+      toast('El motor 3D no está disponible. Comprueba los archivos de Three.js.', 'bad', '!');
+      return;
+    }
+    if (opts.demo) {
+      if (opts.reset || !state || !state.demo) state = buildDemo3DState();
+      if (state) state.demo = true;
+    } else if (!state) {
+      showScreen('boot');
+      return;
+    }
+    if (!state) return;
+
+    if (window.Konoha3D.isActive() && window.Konoha3D.isReady() && currentScreen === 'world3d') {
+      updateWorldHUD();
+      updateQuestTracker();
+      window.Konoha3D.resume();
+      return;
+    }
+
+    const defs = buildWorld3DNpcs();
+    w3dNpcById = {};
+    defs.forEach(function (npc) { w3dNpcById[npc.id] = npc; });
+    w3dArea = 'PLAZA CENTRAL';
+    w3dScrolls = {
+      found: (state.progress.collectibles3d || []).length,
+      total: W3D_MAX_SCROLLS
+    };
+    mapReturn3d = false;
+
+    showScreen('world3d');
+    world3dActive = true;
+    hideAllModals();
+    updateWorldHUD();
+    updateQuestTracker();
+    safePlayTrack('village');
+
+    const spawn = state.world3dPos && typeof state.world3dPos.x === 'number'
+      ? { x: state.world3dPos.x, z: state.world3dPos.z, rot: state.world3dPos.rot }
+      : { x: -27.7, z: 0.1, rot: Math.PI };
+    const quest = computeQuest();
+    const playerModel = state.profile.baseId === 'sasuke' ? 'sasuke' : 'naruto';
+    const collected = (state.progress.collectibles3d || []).slice();
+    const timeMinutes = state.timeMinutes;
+    const day = state.day;
+
+    setTimeout(function () {
+      if (currentScreen !== 'world3d' || !state) return;
+      window.Konoha3D.start($('w3d-canvas'), {
+        npcs: defs,
+        areas: W3D_AREAS,
+        collected: collected,
+        timeMinutes: timeMinutes,
+        day: day,
+        spawn: spawn,
+        quest: quest,
+        playerModel: playerModel,
+        touch: !!settings.touch,
+        reduced: !!settings.low3d,
+        quality: settings.low3d ? 'low' : 'auto',
+        dom: {
+          loader: $('w3d-loading'),
+          error: $('w3d-error'),
+          errorText: $('w3d-error-text'),
+          loadFill: $('w3d-load-fill'),
+          loadPercent: $('w3d-load-percent'),
+          loadLabel: $('w3d-load-label'),
+          tint: $('w3d-tint'),
+          minimap: $('w3d-minimap'),
+          touch: $('w3d-touch'),
+          joystick: $('w3d-joystick'),
+          joystickKnob: $('w3d-joystick-knob'),
+          jump: $('w3d-jump'),
+          interact: $('w3d-interact'),
+          lookPad: $('w3d-look')
+        },
+        callbacks: {
+          onReady: function () {
+            world3dActive = true;
+            const ps = window.Konoha3D.getPlayerState();
+            if (ps && ps.area) w3dArea = ps.area;
+            window.Konoha3D.setCamera({ dist: W3D_VIEWS[w3dViewIndex].dist });
+            updateWorldHUD();
+            updateQuestTracker();
+            hideWorld3DPrompt();
+            if (state.demo) {
+              setTimeout(function () {
+                if (currentScreen === 'world3d') toast('Demo de Konoha 3D · explora libremente. El progreso no se guarda.', '', '3D');
+              }, 600);
+            }
+          },
+          onError: function () {
+            world3dActive = false;
+            hideWorld3DPrompt();
+          },
+          onStop: function () {
+            world3dActive = false;
+            hideWorld3DPrompt();
+          },
+          onPrompt: function (payload) {
+            const prompt = $('w3d-prompt');
+            const text = $('w3d-prompt-text');
+            const key = $('w3d-prompt-key');
+            if (!prompt) return;
+            if (payload && payload.text) {
+              if (text) text.textContent = payload.text;
+              if (key) key.textContent = settings.touch ? 'TOCA' : 'E';
+              prompt.classList.remove('hidden');
+            } else {
+              prompt.classList.add('hidden');
+            }
+          },
+          onInteract: function (payload) {
+            if (!payload) return;
+            const def = w3dNpcById[payload.id] || (window.World.getNpc && window.World.getNpc(payload.id));
+            if (def) handleNpcInteract(def);
+          },
+          onCollect: function (item) { handleWorld3DScroll(item); },
+          onScrolls: function (payload) {
+            w3dScrolls = {
+              found: payload ? payload.found : 0,
+              total: payload && payload.total ? payload.total : W3D_MAX_SCROLLS
+            };
+            updateWorld3DScrollCounter();
+          },
+          onTime: function (payload) {
+            if (!state || !payload) return;
+            state.timeMinutes = payload.minutes;
+            state.day = payload.day;
+            const clock = $('w3d-clock');
+            const dayNode = $('w3d-day');
+            if (clock) clock.textContent = formatGameClock(payload.minutes);
+            if (dayNode) dayNode.textContent = 'DÍA ' + payload.day;
+          },
+          onArea: function (payload) {
+            if (!payload || !payload.name) return;
+            w3dArea = payload.name;
+            const node = $('w3d-place');
+            if (node) node.textContent = payload.name;
+          },
+          onCompass: function (payload) {
+            if (!payload) return;
+            const node = $('w3d-compass');
+            if (node) node.textContent = payload.label || 'N';
+          }
+        }
+      });
+    }, 30);
+  }
+
+  function hideWorld3DPrompt() {
+    const prompt = $('w3d-prompt');
+    if (prompt) prompt.classList.add('hidden');
+  }
+
+  function enterWorld3DFromWorld() {
+    if (!state) return;
+    if (window.Konoha3D && window.Konoha3D.isActive()) {
+      showScreen('world3d');
+      updateWorldHUD();
+      updateQuestTracker();
+      window.Konoha3D.resume();
+      return;
+    }
+    if (window.World.isActive()) {
+      syncWorldPosition();
+      window.World.stop();
+    }
+    worldStarted = false;
+    saveGame(true);
+    startKonoha3D({ demo: false });
+  }
+
+  function exitKonoha3D() {
+    const demo = !state || !!state.demo;
+    if (state && !demo) syncWorld3DPosition();
+    if (window.Konoha3D && window.Konoha3D.isActive()) window.Konoha3D.stop(true);
+    world3dActive = false;
+    mapReturn3d = false;
+    battleReturn3d = false;
+    hideWorld3DPrompt();
+    hideAllModals();
+    if (demo) {
+      state = null;
+      worldStarted = false;
+      pendingReturnPos = null;
+      showScreen('boot');
+      refreshContinue();
+      return;
+    }
+    saveGame(true);
+    showScreen('world');
+    updateWorldHUD();
+    updateQuestTracker();
+    worldStarted = false;
+    startOrResumeWorld(state.mode === 'training' ? 'training' : 'academy');
+    safePlayTrack('village');
+    setTimeout(function () {
+      if (currentScreen === 'world') toast('De vuelta en Konoha 2D', '', '火');
+    }, 700);
+  }
+
+  function retryKonoha3D() {
+    if (!state) return;
+    startKonoha3D({ demo: !!state.demo });
+  }
+
+  function cycleWorld3DView() {
+    if (!window.Konoha3D || !window.Konoha3D.isActive()) return;
+    w3dViewIndex = (w3dViewIndex + 1) % W3D_VIEWS.length;
+    const view = W3D_VIEWS[w3dViewIndex];
+    window.Konoha3D.setCamera({ dist: view.dist });
+    toast('Cámara · ' + view.label, '', '視');
+    safeSfx('click');
+  }
+
+  function openWorld3DPause() {
+    if (!state) return;
+    const demo = !!state.demo;
+    const note = $('w3d-pause-note');
+    if (note) {
+      note.textContent = demo
+        ? 'Modo demo: tu posición y los pergaminos no se guardarán. Crea un shinobi para conservar el progreso.'
+        : 'Tu posición, la hora y los pergaminos encontrados se guardan en la partida.';
+    }
+    const save = $('btn-3d-save');
+    if (save) {
+      save.disabled = demo;
+      save.textContent = demo ? 'DEMO · SIN GUARDADO' : 'GUARDAR PARTIDA';
+    }
+    const to2d = $('btn-3d-2d');
+    if (to2d) to2d.classList.toggle('hidden', demo);
+    const resume = $('btn-3d-resume');
+    if (resume) resume.disabled = !(window.Konoha3D && window.Konoha3D.isActive());
+    showModal('pause-3d-modal');
+  }
+
+  function handleWorld3DScroll(item) {
+    if (!state || !item || !item.id) return;
+    if (!Array.isArray(state.progress.collectibles3d)) state.progress.collectibles3d = [];
+    const list = state.progress.collectibles3d;
+    if (list.indexOf(item.id) < 0) list.push(item.id);
+    const reward = grantRewards(35, 30, { silent: true });
+    toast((item.label || 'Pergamino') + ' · +' + fmtNum(reward.xp) + ' EXP', 'exp', '巻');
+    if (list.length >= W3D_MAX_SCROLLS) {
+      addHistory({
+        type: 'collect', title: 'Memorias de Konoha 3D', rank: 'S',
+        detail: 'Encontró los ocho pergaminos ocultos en la aldea tridimensional.'
+      });
+      setTimeout(function () { toast('Has reunido los ocho pergaminos de Konoha 3D.', 'good', '巻'); }, 500);
+    }
+    saveGame(true);
+    updateWorldHUD();
+    updateQuestTracker();
+    flushRankUp();
   }
 
   /* ---------------- Audio primer gesto ---------------- */
@@ -499,7 +902,7 @@
         const load = $('boot-loading'), menu = $('boot-menu');
         if (load) load.classList.add('hidden');
         if (menu) menu.classList.remove('hidden');
-        ['btn-story', 'btn-training', 'btn-codex', 'btn-settings', 'btn-credits'].forEach(function (id) {
+        ['btn-story', 'btn-training', 'btn-world3d', 'btn-codex', 'btn-settings', 'btn-credits'].forEach(function (id) {
           const b = $(id); if (b) b.disabled = false;
         });
         refreshContinue();
@@ -1266,8 +1669,9 @@
       timeMinutes: 8 * 60,
       day: 1,
       worldPos: null,
+      world3dPos: null,
       progress: {
-        arcs: [], missions: [], collectibles: [], history: [],
+        arcs: [], missions: [], collectibles: [], collectibles3d: [], history: [],
         tutorialStage: 0, introSeen: false, trainingWon: false, lastRamenDay: 0
       },
       stats: { victories: 0, defeats: 0, totalXp: 0, totalRyo: 0, playSeconds: 0 }
@@ -1361,6 +1765,10 @@
   function showRankUp(rankUp, after) {
     if (!rankUp) { if (after) after(); return; }
     if (currentScreen === 'world' && window.World.isActive()) window.World.pause();
+    if (currentScreen === 'world3d' && window.Konoha3D && window.Konoha3D.isActive()) {
+      syncWorld3DPosition();
+      window.Konoha3D.pause();
+    }
     const next = rankData(rankUp.to);
     const title = $('reward-title');
     if (title) title.textContent = next.name.toUpperCase();
@@ -1515,12 +1923,57 @@
     if (fill) fill.style.width = clamp(p.xp / need * 100, 0, 100) + '%';
     const badge = $('world-mode-badge');
     if (badge) badge.textContent = state.mode === 'training' ? 'ENTRENAMIENTO LIBRE' : 'MODO HISTORIA';
-    drawHudPortrait();
+    drawHudPortrait('hud-portrait');
     drawJournalPortrait();
+    updateWorld3DHUD();
   }
 
-  function drawHudPortrait() {
-    const canvas = $('hud-portrait');
+  function updateWorld3DHUD() {
+    if (!state) return;
+    const p = state.profile;
+    const rank = rankData(p.rank);
+    const name = $('w3d-hud-name');
+    if (name) name.textContent = p.name;
+    const rankNode = $('w3d-hud-rank');
+    if (rankNode) rankNode.textContent = rank.name.toUpperCase();
+    const level = $('w3d-hud-level');
+    if (level) level.textContent = p.level;
+    const ryo = $('w3d-hud-ryo');
+    if (ryo) ryo.textContent = '₽ ' + fmtNum(p.ryo);
+    const need = p.level >= D.MAX_LEVEL ? D.LEVEL_XP(D.MAX_LEVEL) : D.LEVEL_XP(p.level);
+    const xpText = $('w3d-hud-xp-text');
+    if (xpText) xpText.textContent = p.level >= D.MAX_LEVEL ? 'NIVEL MÁXIMO' : fmtNum(p.xp) + ' / ' + fmtNum(need) + ' XP';
+    const fill = $('w3d-hud-xp-fill');
+    if (fill) fill.style.width = clamp(p.xp / need * 100, 0, 100) + '%';
+    const badge = $('w3d-mode-badge');
+    if (badge) badge.textContent = state.demo ? 'DEMO · EXPLORACIÓN LIBRE' : 'EXPLORACIÓN LIBRE 3D';
+    const clock = $('w3d-clock');
+    if (clock) clock.textContent = formatGameClock(state.timeMinutes);
+    const day = $('w3d-day');
+    if (day) day.textContent = 'DÍA ' + Math.max(1, state.day || 1);
+    const place = $('w3d-place');
+    if (place) place.textContent = w3dArea;
+    const pauseNote = $('w3d-pause-note');
+    if (pauseNote) {
+      pauseNote.textContent = state.demo
+        ? 'Modo demo: tu posición y los pergaminos no se guardarán. Crea un shinobi para conservar el progreso.'
+        : 'Tu posición, la hora y los pergaminos encontrados se guardan en la partida.';
+    }
+    updateWorld3DScrollCounter();
+    drawHudPortrait('w3d-hud-portrait');
+  }
+
+  function updateWorld3DScrollCounter() {
+    const holder = $('w3d-scrolls');
+    if (!holder) return;
+    const count = holder.querySelector('b');
+    const found = state && state.progress.collectibles3d ? state.progress.collectibles3d.length : w3dScrolls.found;
+    const total = w3dScrolls.total || W3D_MAX_SCROLLS;
+    if (count) count.textContent = found + ' / ' + total;
+  }
+
+  function drawHudPortrait(canvasId) {
+    const canvas = $(canvasId || 'hud-portrait');
     if (!canvas || !state) return;
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1634,15 +2087,24 @@
     const q = computeQuest();
     if (!q) return;
     if (window.World.isActive()) window.World.setQuest(q);
+    if (window.Konoha3D && window.Konoha3D.isActive()) window.Konoha3D.setQuest(q);
     const title = $('quest-title'), desc = $('quest-desc'), obj = $('quest-objective'), reward = $('quest-reward');
     if (title) title.textContent = q.title;
     if (desc) desc.textContent = q.desc;
     if (obj) obj.textContent = q.objective;
     if (reward) reward.textContent = q.reward;
+    const wTitle = $('w3d-quest-title'), wDesc = $('w3d-quest-desc'), wObj = $('w3d-quest-objective');
+    if (wTitle) wTitle.textContent = q.title;
+    if (wDesc) wDesc.textContent = q.desc;
+    if (wObj) wObj.textContent = q.objective;
     const tracker = document.querySelector('.quest-tracker');
     if (tracker) tracker.classList.toggle('collapsed', !!state.questCollapsed);
+    const wTracker = $('w3d-quest-tracker');
+    if (wTracker) wTracker.classList.toggle('collapsed', !!state.questCollapsed);
     const collapse = $('btn-quest-collapse');
     if (collapse) collapse.textContent = state.questCollapsed ? '+' : '−';
+    const wCollapse = $('btn-w3d-quest-collapse');
+    if (wCollapse) wCollapse.textContent = state.questCollapsed ? '+' : '−';
   }
 
   function maybeAdvanceNpcQuest(npc) {
@@ -1702,6 +2164,12 @@
     if (npc.id === 'gate') {
       return { text: 'Las puertas de Konoha permanecen abiertas para sus ninjas. Otras tierras tendrán que esperar: hoy, la Hoja es tu hogar.', mood: 'neutral' };
     }
+    if (npc.id === 'sasuke') {
+      return { text: 'No tengo tiempo para perderlo contigo. Si quieres aprender algo útil, ponte en guardia. El camino del shinobi no se recorre hablando.', mood: 'neutral' };
+    }
+    if (npc.id === 'naruto') {
+      return { text: '¡Eh, tú! ¿También estás explorando la aldea? Algún día seré Hokage y todos estos tejados serán mi responsabilidad. ¡Entrena conmigo si te atreves!', mood: 'warm' };
+    }
     if (NPC_EXTRA_LINES[npc.id]) {
       const lines = NPC_EXTRA_LINES[npc.id];
       return { text: lines[(state.profile.name.length + npc.id.length) % lines.length], mood: 'neutral' };
@@ -1713,6 +2181,7 @@
   function handleNpcInteract(npc) {
     if (!state || !npc) return;
     if (window.World.isActive()) window.World.pause();
+    if (window.Konoha3D && window.Konoha3D.isActive() && !window.Konoha3D.isPaused()) window.Konoha3D.pause();
     const advance = maybeAdvanceNpcQuest(npc);
     const data = npcLineFor(npc);
     let line = data.text.replace(/\{name\}/g, state.profile.name);
@@ -1759,6 +2228,12 @@
     if (npc.id === 'iruka') {
       options.push({ label: 'PEDIR CONSEJO', icon: '?', action: function () { npcAdvice(); } });
     }
+    if (npc.id === 'sasuke' || npc.id === 'naruto') {
+      options.push({
+        label: 'ENTRENAR CON ' + npc.name.toUpperCase(), icon: '術',
+        action: function () { startTraining(npc.id); }
+      });
+    }
     options.push({ label: 'DESPEDIRSE', icon: '×', close: true });
     openDialogue(npc, line, options);
   }
@@ -1793,6 +2268,7 @@
   /* ---------------- Diálogos ---------------- */
   function openDialogue(npc, line, options) {
     if (window.World.isActive()) window.World.pause();
+    if (window.Konoha3D && window.Konoha3D.isActive() && !window.Konoha3D.isPaused()) window.Konoha3D.pause();
     hideAllModals();
     const name = $('dialogue-name');
     if (name) name.textContent = npc.name;
@@ -1829,6 +2305,10 @@
   }
 
   function resumeWorldIfPaused() {
+    if (currentScreen === 'world3d' && window.Konoha3D && window.Konoha3D.isActive() && window.Konoha3D.isPaused && window.Konoha3D.isPaused()) {
+      window.Konoha3D.resume();
+      return;
+    }
     if (currentScreen === 'world' && window.World.isActive() && window.World.isPaused && window.World.isPaused()) {
       window.World.resume();
     }
@@ -1879,8 +2359,14 @@
 
   function pauseWorldForPanel() {
     if (currentScreen === 'world' && window.World.isActive()) {
+      panelReturnMode = 'world';
       syncWorldPosition();
       window.World.pause();
+      saveGame(true);
+    } else if (currentScreen === 'world3d' && window.Konoha3D && window.Konoha3D.isActive()) {
+      panelReturnMode = 'world3d';
+      syncWorld3DPosition();
+      window.Konoha3D.pause();
       saveGame(true);
     }
   }
@@ -1921,7 +2407,7 @@
 
   function openCodex(from) {
     codexReturn = from || currentScreen;
-    if (currentScreen === 'world') pauseWorldForPanel();
+    if (currentScreen === 'world' || currentScreen === 'world3d') pauseWorldForPanel();
     showScreen('codex');
     renderCodex();
   }
@@ -1934,7 +2420,7 @@
 
   function openCredits(from) {
     creditsReturn = from || currentScreen;
-    if (currentScreen === 'world') pauseWorldForPanel();
+    if (currentScreen === 'world' || currentScreen === 'world3d') pauseWorldForPanel();
     showScreen('credits');
     drawCredits();
   }
@@ -1943,6 +2429,15 @@
     safeSfx('back');
     if (target === 'world') {
       if (!state) { showScreen('boot'); return; }
+      if (panelReturnMode === 'world3d') {
+        showScreen('world3d');
+        updateWorldHUD();
+        updateQuestTracker();
+        if (window.Konoha3D && window.Konoha3D.isActive()) window.Konoha3D.resume();
+        else startKonoha3D({ demo: !!state.demo });
+        safePlayTrack('village');
+        return;
+      }
       showScreen('world');
       updateWorldHUD();
       updateQuestTracker();
@@ -2341,14 +2836,14 @@
     const musicVal = $('set-music-val'), sfxVal = $('set-sfx-val');
     if (musicVal) musicVal.textContent = Math.round(settings.music * 100) + '%';
     if (sfxVal) sfxVal.textContent = Math.round(settings.sfx * 100) + '%';
-    const toggles = [['set-voice', 'voice'], ['set-tips', 'tips'], ['set-shake', 'shake'], ['set-touch', 'touch'], ['set-fast', 'fast']];
+    const toggles = [['set-voice', 'voice'], ['set-tips', 'tips'], ['set-shake', 'shake'], ['set-touch', 'touch'], ['set-fast', 'fast'], ['set-low3d', 'low3d']];
     toggles.forEach(function (pair) {
       const node = $(pair[0]);
       if (node) node.checked = !!settings[pair[1]];
     });
     updateSaveInfo();
     const saveNow = $('btn-save-now');
-    if (saveNow) saveNow.disabled = !state;
+    if (saveNow) saveNow.disabled = !state || !!(state && state.demo);
     const reset = $('btn-reset-save');
     if (reset) reset.disabled = !state && !loadSave();
   }
@@ -2356,6 +2851,10 @@
   function updateSaveInfo() {
     const node = $('save-info');
     if (!node) return;
+    if (state && state.demo) {
+      node.innerHTML = 'Estás explorando en <b style="color:var(--gold)">modo demo</b>.<br>La demo no modifica tu partida guardada. Crea un shinobi para conservar el progreso.';
+      return;
+    }
     const save = state ? normalizeState(JSON.parse(JSON.stringify(state))) : loadSave();
     if (!save) {
       node.innerHTML = 'No hay ninguna partida guardada.<br>Empieza una nueva historia para crear tu expediente shinobi.';
@@ -2383,7 +2882,11 @@
         queuedRank = null;
         pendingReturnPos = null;
         worldStarted = false;
+        world3dActive = false;
+        battleReturn3d = false;
+        mapReturn3d = false;
         try { window.World.stop(); } catch (e) {}
+        try { window.Konoha3D.stop(true); } catch (e) {}
         try { window.Battle.stop(); } catch (e) {}
         hideAllModals();
         showScreen('boot');
@@ -2750,7 +3253,15 @@
   function startPreparedBattle(config, chapter) {
     if (!state || !config) return;
     hideAllModals();
-    if (window.World.isActive()) {
+    const from3d = !!(window.Konoha3D && window.Konoha3D.isActive());
+    battleReturn3d = from3d;
+    if (from3d) {
+      syncWorld3DPosition();
+      pendingReturnPos = null;
+      window.Konoha3D.stop(true);
+      world3dActive = false;
+      hideWorld3DPrompt();
+    } else if (window.World.isActive()) {
       captureReturnPosition();
       window.World.stop();
     } else if (!pendingReturnPos) {
@@ -2886,6 +3397,18 @@
     if (!state) { showScreen('boot'); return; }
     lastBattle = null;
     hideAllModals();
+    if (battleReturn3d) {
+      battleReturn3d = false;
+      saveGame(true);
+      startKonoha3D({ demo: !!state.demo });
+      setTimeout(function () {
+        const q = computeQuest();
+        if (q && state && state.mode === 'story' && state.progress.tutorialStage === 2) {
+          toast('El Hokage te espera en la Torre. Tu expediente aguarda su sello.', 'exp', '巻');
+        }
+      }, 1200);
+      return;
+    }
     if (pendingReturnPos) state.worldPos = { x: pendingReturnPos.x, y: pendingReturnPos.y };
     saveGame(true);
     showScreen('world');
@@ -2925,7 +3448,17 @@
 
   /* ---------------- Pausa y menú ---------------- */
   function openPause() {
-    if (currentScreen !== 'world' || !state) return;
+    if (!state) return;
+    if (currentScreen === 'world3d') {
+      if (window.Konoha3D && window.Konoha3D.isActive()) {
+        syncWorld3DPosition();
+        window.Konoha3D.pause();
+      }
+      openWorld3DPause();
+      safeSfx('click');
+      return;
+    }
+    if (currentScreen !== 'world') return;
     if (window.World.isActive()) {
       syncWorldPosition();
       window.World.pause();
@@ -2940,17 +3473,24 @@
   }
 
   function confirmMainMenu(from) {
+    const demo = !!(state && state.demo);
     showConfirm({
       kicker: 'VOLVER AL MENÚ',
-      title: 'DEJAR LA HOJA',
-      text: 'Tu progreso se guardará y podrás continuar después desde el menú principal. ¿Quieres salir?',
-      ok: 'GUARDAR Y SALIR',
+      title: demo ? 'SALIR DE LA DEMO' : 'DEJAR LA HOJA',
+      text: demo
+        ? 'La exploración 3D desde el menú es una demo y no guarda progreso. ¿Quieres volver al menú principal?'
+        : 'Tu progreso se guardará y podrás continuar después desde el menú principal. ¿Quieres salir?',
+      ok: demo ? 'SALIR DE LA DEMO' : 'GUARDAR Y SALIR',
       cancel: 'SEGUIR JUGANDO',
       onOk: function () {
-        if (state) saveGame(true);
+        if (state && !demo) saveGame(true);
         try { window.World.stop(); } catch (e) {}
+        try { window.Konoha3D.stop(true); } catch (e) {}
         try { window.Battle.stop(); } catch (e) {}
         state = null;
+        world3dActive = false;
+        battleReturn3d = false;
+        mapReturn3d = false;
         worldStarted = false;
         pendingReturnPos = null;
         queuedRank = null;
@@ -2960,7 +3500,8 @@
         refreshContinue();
       },
       onCancel: function () {
-        if (from === 'pause' && currentScreen === 'world') showModal('pause-modal');
+        if (from === 'pause3d' && currentScreen === 'world3d') showModal('pause-3d-modal');
+        else if (from === 'pause' && currentScreen === 'world') showModal('pause-modal');
         else if (from === 'battle' && currentScreen === 'battle') showModal('pause-battle-modal');
       }
     });
@@ -2968,23 +3509,177 @@
 
   /* ---------------- Mapa ---------------- */
   function openWorldMap() {
+    mapReturn3d = currentScreen === 'world3d';
     mapPausedWorld = currentScreen === 'world' && window.World.isActive();
     if (mapPausedWorld) {
       syncWorldPosition();
       window.World.pause();
+    } else if (mapReturn3d && window.Konoha3D && window.Konoha3D.isActive()) {
+      syncWorld3DPosition();
+      window.Konoha3D.pause();
     }
     showModal('map-modal');
-    const canvas = $('big-map');
-    if (canvas) {
-      try { window.World.drawBigMap(canvas); } catch (e) { console.error(e); }
-    }
+    drawActiveMap();
     safeSfx('click');
   }
 
   function closeWorldMap() {
     hideAllModals();
-    if (mapPausedWorld) resumeWorldIfPaused();
+    if (mapPausedWorld || mapReturn3d) resumeWorldIfPaused();
     mapPausedWorld = false;
+    mapReturn3d = false;
+  }
+
+  function drawActiveMap() {
+    const canvas = $('big-map');
+    if (!canvas) return;
+    if (mapReturn3d) {
+      try { drawWorld3DMap(canvas); } catch (e) { console.error(e); }
+      return;
+    }
+    try { window.World.drawBigMap(canvas); } catch (e) { console.error(e); }
+  }
+
+  function drawWorld3DMap(canvas) {
+    const stats = window.Konoha3D && window.Konoha3D.stats ? window.Konoha3D.stats() : null;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, '#10251a');
+    bg.addColorStop(1, '#07130d');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    const span = 230;
+    const pad = 46;
+    const scale = Math.min((w - pad * 2) / span, (h - pad * 2) / span);
+    const cx = w / 2, cy = h / 2;
+    const px = function (x) { return cx + x * scale; };
+    const pz = function (z) { return cy + z * scale; };
+
+    ctx.strokeStyle = 'rgba(160, 210, 180, .08)';
+    ctx.lineWidth = 1;
+    for (let v = -100; v <= 100; v += 20) {
+      ctx.beginPath(); ctx.moveTo(px(v), pz(-105)); ctx.lineTo(px(v), pz(105)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(px(-105), pz(v)); ctx.lineTo(px(105), pz(v)); ctx.stroke();
+    }
+
+    ctx.strokeStyle = 'rgba(200, 170, 110, .25)';
+    ctx.lineWidth = 2;
+    W3D_AREAS.forEach(function (area) {
+      ctx.beginPath();
+      ctx.moveTo(px(-27.7), pz(0.1));
+      ctx.lineTo(px(area.x), pz(area.z));
+      ctx.stroke();
+    });
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    W3D_AREAS.forEach(function (area) {
+      ctx.fillStyle = 'rgba(255, 194, 71, .055)';
+      ctx.strokeStyle = 'rgba(255, 194, 71, .28)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(px(area.x), pz(area.z), Math.max(18, area.r * scale), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+
+    /* Etiquetas con detección de solapes: el mapa queda legible en 3D. */
+    const labelBoxes = [];
+    function areaLabel(text, x, y) {
+      ctx.font = '700 11px Rajdhani, sans-serif';
+      const tw = ctx.measureText(text).width + 10;
+      const th = 15;
+      const candidates = [
+        [x, y], [x, y - 16], [x, y + 16],
+        [x - tw / 2 - 8, y], [x + tw / 2 + 8, y],
+        [x, y - 32], [x, y + 32],
+        [x - tw / 2 - 8, y - 16], [x + tw / 2 + 8, y + 16]
+      ];
+      let chosen = null;
+      for (let i = 0; i < candidates.length; i++) {
+        const box = {
+          x: candidates[i][0] - tw / 2,
+          y: candidates[i][1] - th / 2,
+          w: tw, h: th
+        };
+        if (box.x < 4 || box.y < 4 || box.x + box.w > w - 4 || box.y + box.h > h - 4) continue;
+        const overlap = labelBoxes.some(function (b) {
+          return !(box.x + box.w < b.x || box.x > b.x + b.w || box.y + box.h < b.y || box.y > b.y + b.h);
+        });
+        if (!overlap) { chosen = { box: box, x: candidates[i][0], y: candidates[i][1] }; break; }
+      }
+      if (!chosen) {
+        chosen = { box: { x: x - tw / 2, y: y - th / 2, w: tw, h: th }, x: x, y: y };
+      }
+      labelBoxes.push(chosen.box);
+      ctx.fillStyle = 'rgba(4, 14, 20, .78)';
+      ctx.fillRect(chosen.box.x, chosen.box.y, chosen.box.w, chosen.box.h);
+      ctx.fillStyle = 'rgba(224, 238, 246, .9)';
+      ctx.fillText(text, chosen.x, chosen.y + 0.5);
+    }
+    W3D_AREAS.forEach(function (area) {
+      areaLabel(area.name, px(area.x), pz(area.z) - Math.max(18, area.r * scale) - 12);
+    });
+
+    if (stats) {
+      const quest = computeQuest();
+      const target = quest ? quest.targetNpc : null;
+      stats.npcs.forEach(function (npc) {
+        const isTarget = target === npc.id;
+        ctx.fillStyle = isTarget ? '#ffc247' : 'rgba(102, 217, 255, .9)';
+        ctx.beginPath();
+        ctx.arc(px(npc.x), pz(npc.z), isTarget ? 6 : 4.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(4, 14, 20, .8)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
+      stats.scrolls.forEach(function (scroll) {
+        if (scroll.collected) return;
+        const x = px(scroll.x), z = pz(scroll.z);
+        ctx.save();
+        ctx.translate(x, z);
+        ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = '#ffd477';
+        ctx.fillRect(-4.5, -4.5, 9, 9);
+        ctx.strokeStyle = 'rgba(4, 14, 20, .85)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(-4.5, -4.5, 9, 9);
+        ctx.restore();
+      });
+      if (stats.player) {
+        ctx.save();
+        ctx.translate(px(stats.player.x), pz(stats.player.z));
+        ctx.rotate(-(stats.player.rot || 0));
+        ctx.fillStyle = '#ff8a2a';
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, -12);
+        ctx.lineTo(-8, 8);
+        ctx.lineTo(0, 4);
+        ctx.lineTo(8, 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(4, 14, 20, .88)';
+    ctx.fillRect(22, 22, 278, 40);
+    ctx.fillStyle = '#ffc247';
+    ctx.font = '700 19px Rajdhani, sans-serif';
+    ctx.fillText('KONOHA 3D · MAPA TÁCTICO', 38, 47);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = 'rgba(200, 225, 238, .62)';
+    ctx.font = '700 12px Rajdhani, sans-serif';
+    ctx.fillText('● SHINOBI   ◆ PERGAMINO   ▲ TÚ', w - 30, h - 24);
+    ctx.textAlign = 'left';
   }
 
   /* ---------------- Flujo de partida ---------------- */
@@ -2996,6 +3691,15 @@
 
   function closeCodex() {
     safeSfx('back');
+    if (codexReturn === 'world3d' && state) {
+      showScreen('world3d');
+      updateWorldHUD();
+      updateQuestTracker();
+      if (window.Konoha3D && window.Konoha3D.isActive()) window.Konoha3D.resume();
+      else startKonoha3D({ demo: !!state.demo });
+      safePlayTrack('village');
+      return;
+    }
     if (codexReturn === 'world' && state) {
       showScreen('world');
       updateWorldHUD();
@@ -3016,6 +3720,14 @@
       showModal('pause-battle-modal');
       return;
     }
+    if (target === 'world3d' && state) {
+      showScreen('world3d');
+      updateWorldHUD();
+      updateQuestTracker();
+      if (window.Konoha3D && window.Konoha3D.isActive()) openWorld3DPause();
+      else startKonoha3D({ demo: !!state.demo });
+      return;
+    }
     if (target === 'world' && state) {
       showScreen('world');
       updateWorldHUD();
@@ -3029,6 +3741,15 @@
 
   function closeCredits() {
     safeSfx('back');
+    if (creditsReturn === 'world3d' && state) {
+      showScreen('world3d');
+      updateWorldHUD();
+      updateQuestTracker();
+      if (window.Konoha3D && window.Konoha3D.isActive()) window.Konoha3D.resume();
+      else startKonoha3D({ demo: !!state.demo });
+      safePlayTrack('village');
+      return;
+    }
     if (creditsReturn === 'world' && state) {
       showScreen('world');
       updateWorldHUD();
@@ -3076,6 +3797,7 @@
     }
     if (top.id === 'dialogue-modal') { closeDialogue(true); return true; }
     if (top.id === 'pause-modal') { closePause(true); return true; }
+    if (top.id === 'pause-3d-modal') { closePause(true); return true; }
     if (top.id === 'pause-battle-modal') {
       hideAllModals();
       if (currentScreen === 'battle') window.Battle.resume();
@@ -3175,6 +3897,11 @@
     listen('btn-continue', 'click', continueGame);
     listen('btn-story', 'click', function () { startNewStory('story'); });
     listen('btn-training', 'click', function () { startNewStory('training'); });
+    listen('btn-world3d', 'click', function () {
+      unlockAudio();
+      safeSfx('confirm');
+      startKonoha3D({ demo: true, reset: true });
+    });
     listen('btn-codex', 'click', function () { openCodex('boot'); });
     listen('btn-settings', 'click', function () { openSettings('boot'); });
     listen('btn-credits', 'click', function () { openCredits('boot'); });
@@ -3267,6 +3994,10 @@
     listen('cutscene-titlecard', 'click', advanceCutscene);
 
     /* Mundo abierto */
+    listen('btn-world-3d', 'click', function () {
+      safeSfx('confirm');
+      enterWorld3DFromWorld();
+    });
     listen('btn-world-story', 'click', openStoryPanel);
     listen('btn-world-missions', 'click', function () { openMissions('all'); });
     listen('btn-world-journal', 'click', openJournal);
@@ -3279,6 +4010,41 @@
       updateQuestTracker();
       saveGame(true);
     });
+
+    /* Konoha 3D */
+    listen('btn-w3d-story', 'click', openStoryPanel);
+    listen('btn-w3d-missions', 'click', function () { openMissions('all'); });
+    listen('btn-w3d-codex', 'click', function () { openCodex('world3d'); });
+    listen('btn-w3d-view', 'click', cycleWorld3DView);
+    listen('btn-w3d-menu', 'click', openPause);
+    listen('btn-w3d-quest-collapse', 'click', function () {
+      if (!state) return;
+      state.questCollapsed = !state.questCollapsed;
+      safeSfx('click');
+      updateQuestTracker();
+      saveGame(true);
+    });
+    listen('w3d-error-retry', 'click', retryKonoha3D);
+    listen('w3d-error-back', 'click', exitKonoha3D);
+    listen('btn-3d-resume', 'click', function () { closePause(true); });
+    listen('btn-3d-save', 'click', function () {
+      if (!state) return;
+      if (state.demo) {
+        toast('Modo demo: esta exploración no se guarda. Crea un shinobi para conservar tu progreso.', '', '3D');
+        return;
+      }
+      saveGame(false);
+    });
+    listen('btn-3d-settings', 'click', function () {
+      hideAllModals();
+      openSettings('world3d');
+    });
+    listen('btn-3d-credits', 'click', function () {
+      hideAllModals();
+      openCredits('world3d');
+    });
+    listen('btn-3d-2d', 'click', exitKonoha3D);
+    listen('btn-3d-menu', 'click', function () { confirmMainMenu('pause3d'); });
 
     /* Botones de vuelta de los paneles */
     $$('[data-back]').forEach(function (btn) {
@@ -3376,12 +4142,13 @@
         saveSettings();
       });
     });
-    [['set-voice', 'voice'], ['set-tips', 'tips'], ['set-shake', 'shake'], ['set-touch', 'touch'], ['set-fast', 'fast']].forEach(function (spec) {
+    [['set-voice', 'voice'], ['set-tips', 'tips'], ['set-shake', 'shake'], ['set-touch', 'touch'], ['set-fast', 'fast'], ['set-low3d', 'low3d']].forEach(function (spec) {
       const input = $(spec[0]);
       if (!input) return;
       input.addEventListener('change', function () {
         settings[spec[1]] = !!input.checked;
         saveSettings();
+        applySettings();
         safeSfx('click');
       });
     });
@@ -3453,7 +4220,7 @@
       hideAllModals();
       safeSfx('confirm');
       if (cb) cb();
-      else if (currentScreen === 'world') resumeWorldIfPaused();
+      else if (currentScreen === 'world' || currentScreen === 'world3d') resumeWorldIfPaused();
     });
   }
 
@@ -3493,6 +4260,21 @@
       return;
     }
 
+    if (currentScreen === 'world3d') {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        openPause();
+        return;
+      }
+      const code = e.code;
+      if (code === 'KeyV') { e.preventDefault(); cycleWorld3DView(); }
+      else if (code === 'KeyH') { e.preventDefault(); openStoryPanel(); }
+      else if (code === 'KeyM') { e.preventDefault(); openMissions('all'); }
+      else if (code === 'KeyJ') { e.preventDefault(); openJournal(); }
+      else if (code === 'KeyC') { e.preventDefault(); openCodex('world3d'); }
+      return;
+    }
+
     if (currentScreen === 'world') {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -3500,7 +4282,8 @@
         return;
       }
       const code = e.code;
-      if (code === 'KeyH') { e.preventDefault(); openStoryPanel(); }
+      if (code === 'KeyV') { e.preventDefault(); enterWorld3DFromWorld(); }
+      else if (code === 'KeyH') { e.preventDefault(); openStoryPanel(); }
       else if (code === 'KeyM') { e.preventDefault(); openMissions('all'); }
       else if (code === 'KeyJ') { e.preventDefault(); openJournal(); }
       else if (code === 'KeyC') { e.preventDefault(); openCodex('world'); }
@@ -3575,7 +4358,7 @@
       const layer = $('modal-layer');
       const map = $('map-modal');
       if (layer && map && !layer.classList.contains('hidden') && !map.classList.contains('hidden')) {
-        try { window.World.drawBigMap($('big-map')); } catch (e) {}
+        drawActiveMap();
       }
     });
   }
