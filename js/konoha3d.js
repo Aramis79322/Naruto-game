@@ -12,10 +12,14 @@
   var VILLAGE_URL = 'assets/models/village_opt.glb';
   var CHARS_URL = 'assets/models/naruto_sasuke_opt.glb';
   var KAKASHI_URL = 'assets/models/kakashi.glb';
+  var RUN_URL = 'assets/models/naruto_run.glb';
+  var HOKAGE_ROOM_URL = 'assets/models/hokage_room.glb';
   var MODEL_KEYS = {};
   MODEL_KEYS[VILLAGE_URL] = 'village';
   MODEL_KEYS[CHARS_URL] = 'chars';
   MODEL_KEYS[KAKASHI_URL] = 'kakashi';
+  MODEL_KEYS[RUN_URL] = 'run';
+  MODEL_KEYS[HOKAGE_ROOM_URL] = 'room';
   var MODEL_DATA_URL = 'js/models3d-data.js';
   var modelDataPromise = null;
 
@@ -26,6 +30,50 @@
   var WALK_MAX = 16.0;
   var CELL = 1.0;
   var DAY_SECONDS_PER_MINUTE = 1.15;
+
+  /* El despacho se construye lejos de la aldea para poder teletransportar
+     al jugador sin recargar la escena ni el renderer. */
+  var ROOM_X = 420;
+  var ROOM_Z = 0;
+  var ROOM_FLOOR = 0.02;
+  var ROOM_MIN_X = ROOM_X - 11.2;
+  var ROOM_MAX_X = ROOM_X + 1.7;
+  var ROOM_MIN_Z = ROOM_Z - 7.7;
+  var ROOM_MAX_Z = ROOM_Z + 7.7;
+  var ROOM_CAM_MIN_X = ROOM_X - 11.7;
+  var ROOM_CAM_MAX_X = ROOM_X + 2.15;
+  var ROOM_SPAWN = { x: ROOM_X - 2.2, z: ROOM_Z, yaw: -Math.PI / 2 };
+  var ROOM_EXIT = { x: ROOM_X + 1.45, z: ROOM_Z };
+  var ROOM_DESK = { minX: ROOM_X - 9.3, maxX: ROOM_X - 5.2, minZ: ROOM_Z - 2.4, maxZ: ROOM_Z + 1.4 };
+  var HOKAGE_ROOM_POS = { x: ROOM_X - 7.6, z: ROOM_Z - 0.45 };
+  var CHECKPOINT_X = -9.7;
+  var CHECKPOINT_Z = 19.8;
+
+  /* Correspondencia de las patas del rig DEF con el clip Mixamo suministrado.
+     El torso se deja en su pose de reposo: mezclar orientaciones entre ambos
+     rigs lo doblaba hacia atrás. */
+  var RUN_LEG_MAP = {
+    naruto: {
+      'DEF-thighL_0495': 'mixamorigLeftUpLeg_056',
+      'DEF-shinL_0497': 'mixamorigLeftLeg_057',
+      'DEF-footL_0499': 'mixamorigLeftFoot_058',
+      'DEF-toeL_0500': 'mixamorigLeftToeBase_059',
+      'DEF-thighR_0494': 'mixamorigRightUpLeg_00',
+      'DEF-shinR_0516': 'mixamorigRightLeg_061',
+      'DEF-footR_0518': 'mixamorigRightFoot_062',
+      'DEF-toeR_0519': 'mixamorigRightToeBase_063'
+    },
+    sasuke: {
+      'DEF-thighL_083': 'mixamorigLeftUpLeg_056',
+      'DEF-shinL_085': 'mixamorigLeftLeg_057',
+      'DEF-footL_087': 'mixamorigLeftFoot_058',
+      'DEF-toeL_088': 'mixamorigLeftToeBase_059',
+      'DEF-thighR_0102': 'mixamorigRightUpLeg_00',
+      'DEF-shinR_0104': 'mixamorigRightLeg_061',
+      'DEF-footR_0106': 'mixamorigRightFoot_062',
+      'DEF-toeR_0107': 'mixamorigRightToeBase_063'
+    }
+  };
 
   var BONE_NAMES = {
     naruto: {
@@ -57,6 +105,8 @@
     /* actores */
     player: null, npcs: [], scrolls: [], quest: null,
     promptText: '', promptBest: null, interactCooldown: 0,
+    /* despacho del Hokage */
+    room: null, checkpoint: null, roomExit: null,
     /* cámara e input */
     keys: {}, dragging: false, lastMouse: { x: 0, y: 0 },
     cam: {
@@ -150,7 +200,7 @@
       side: options.side !== undefined ? options.side : (src && src.side !== undefined ? src.side : THREE.FrontSide),
       depthWrite: !(src && src.transparent && src.opacity < 1) && (src ? src.depthWrite !== false : true),
       fog: true,
-      vertexColors: false
+      vertexColors: !!(src && src.vertexColors)
     });
     if (options.skinning) mat.skinning = true;
     if (mat.map) mat.map.encoding = THREE.sRGBEncoding;
@@ -731,7 +781,139 @@
     shadow.position.y = 0.05;
     root.add(shadow);
 
-    return { which: which, root: root, holder: holder, model: clone, bones: boneMap, meshes: meshes, shadow: shadow };
+    var runKit = createRunKit(clone, which);
+    return { which: which, root: root, holder: holder, model: clone, bones: boneMap, meshes: meshes, shadow: shadow, runKit: runKit, runTime: 0 };
+  }
+
+  function runBoneAxis(bone) {
+    if (!bone || !bone.parent) return new THREE.Vector3(1, 0, 0);
+    var pq = new THREE.Quaternion();
+    bone.parent.getWorldQuaternion(pq);
+    pq.invert();
+    return new THREE.Vector3(1, 0, 0).applyQuaternion(pq).normalize();
+  }
+
+  function createRunKit(clone, which) {
+    var gltf = S.modelCache[RUN_URL];
+    var map = RUN_LEG_MAP[which];
+    if (!gltf || !map || !gltf.animations || !gltf.animations.length) return null;
+    var runScene = gltf.scene;
+    var cache = runScene.userData.__k3dRunRest;
+    if (!cache) {
+      cache = {};
+      runScene.traverse(function (o) {
+        if (o.isBone) cache[o.name] = o.quaternion.clone();
+      });
+      runScene.userData.__k3dRunRest = cache;
+    }
+
+    var srcBone = {}, srcRest = {}, srcRestInv = {};
+    var targetBone = {}, targetRest = {};
+    Object.keys(map).forEach(function (targetName) {
+      var tb = clone.getObjectByName(targetName);
+      var sb = runScene.getObjectByName(map[targetName]);
+      if (!tb || !sb) return;
+      targetBone[targetName] = tb;
+      targetRest[targetName] = tb.quaternion.clone();
+      srcBone[targetName] = sb;
+      var rest = cache[sb.name] || sb.quaternion.clone();
+      srcRest[targetName] = rest;
+      srcRestInv[targetName] = rest.clone().invert();
+    });
+    if (!Object.keys(targetBone).length) return null;
+
+    var armNames = which === 'sasuke'
+      ? ['DEF-upper_armL_0156', 'DEF-upper_armR_0282']
+      : ['DEF-upper_armL_0569', 'DEF-upper_armR_0694'];
+    var armData = [];
+    armNames.forEach(function (name, idx) {
+      var bone = clone.getObjectByName(name);
+      if (!bone) return;
+      armData.push({
+        bone: bone,
+        rest: bone.quaternion.clone(),
+        axis: runBoneAxis(bone),
+        side: idx === 0 ? 1 : -1
+      });
+    });
+
+    var names = BONE_NAMES[which] || {};
+    var headBone = names.head ? clone.getObjectByName(names.head) : null;
+    var headRest = headBone ? headBone.quaternion.clone() : null;
+    var headAxis = headBone ? runBoneAxis(headBone) : null;
+
+    var footBones = [];
+    Object.keys(targetBone).forEach(function (name) {
+      if (/foot|toe/i.test(name)) footBones.push(targetBone[name]);
+    });
+
+    var clip = gltf.animations[0];
+    var mixer = new THREE.AnimationMixer(runScene);
+    var action = mixer.clipAction(clip);
+    action.play();
+
+    return {
+      which: which, runScene: runScene, clip: clip, mixer: mixer,
+      duration: clip.duration || 0.6333,
+      srcBone: srcBone, srcRest: srcRest, srcRestInv: srcRestInv,
+      targetBone: targetBone, targetRest: targetRest,
+      armData: armData, headBone: headBone, headRest: headRest, headAxis: headAxis,
+      footBones: footBones, lean: 0.12
+    };
+  }
+
+  function resetRunPose(p) {
+    var kit = p && p.runKit;
+    if (!kit) return;
+    Object.keys(kit.targetBone).forEach(function (name) {
+      kit.targetBone[name].quaternion.copy(kit.targetRest[name]);
+    });
+    kit.armData.forEach(function (a) { a.bone.quaternion.copy(a.rest); });
+    if (kit.headBone && kit.headRest) kit.headBone.quaternion.copy(kit.headRest);
+    if (p.holder) {
+      p.holder.rotation.x = 0;
+      p.holder.position.y = 0;
+    }
+    p.runActive = false;
+  }
+
+  function applyRunPose(p, dt, speedNow) {
+    var kit = p && p.runKit;
+    if (!kit) return false;
+    var ratio = clamp(speedNow / 7.6, 0, 1.2);
+    p.runTime = (p.runTime || 0) + dt * (1.15 + ratio * 0.55);
+    var t = p.runTime % kit.duration;
+    kit.mixer.setTime(t);
+
+    Object.keys(kit.targetBone).forEach(function (name) {
+      var delta = S.tmp.q1.copy(kit.srcRestInv[name]).multiply(kit.srcBone[name].quaternion);
+      kit.targetBone[name].quaternion.copy(kit.targetRest[name]).multiply(delta);
+    });
+
+    var sway = Math.sin(t / kit.duration * Math.PI * 2);
+    kit.armData.forEach(function (a) {
+      var q = S.tmp.q2.setFromAxisAngle(a.axis, 1.15 + sway * 0.09 * a.side);
+      a.bone.quaternion.copy(a.rest).premultiply(q);
+    });
+    if (kit.headBone && kit.headRest && kit.headAxis) {
+      kit.headBone.quaternion.copy(kit.headRest);
+      S.tmp.q1.setFromAxisAngle(kit.headAxis, -0.08);
+      kit.headBone.quaternion.premultiply(S.tmp.q1);
+    }
+
+    if (p.holder) p.holder.rotation.x = kit.lean;
+    if (p.holder) p.holder.position.y = 0;
+    p.root.updateMatrixWorld(true);
+    var minY = Infinity;
+    var v = S.tmp.v1;
+    kit.footBones.forEach(function (bone) {
+      bone.getWorldPosition(v);
+      p.root.worldToLocal(v);
+      if (v.y < minY) minY = v.y;
+    });
+    if (p.holder && isFinite(minY)) p.holder.position.y = -minY;
+    p.runActive = true;
+    return true;
   }
 
   function bakeRig(which, targetHeight) {
@@ -908,13 +1090,24 @@
     var f = makePartFactory(parts);
     var dark = '#1a1a22';
 
-    // piernas
-    f.box(outfit2, -0.12, 0.28, 0, 0.17, 0.56, 0.19);
-    f.box(outfit2, 0.12, 0.28, 0, 0.17, 0.56, 0.19);
-    f.box(dark, -0.12, 0.05, 0.03, 0.2, 0.1, 0.28);
-    f.box(dark, 0.12, 0.05, 0.03, 0.2, 0.1, 0.28);
-    f.box(trim, -0.12, 0.2, 0.01, 0.185, 0.12, 0.2);
-    f.box(trim, 0.12, 0.2, 0.01, 0.185, 0.12, 0.2);
+    // piernas (de pie o sentado)
+    if (art.seated) {
+      f.box(outfit2, -0.12, 0.56, 0.2, 0.17, 0.16, 0.42);
+      f.box(outfit2, 0.12, 0.56, 0.2, 0.17, 0.16, 0.42);
+      f.box(outfit2, -0.12, 0.3, 0.4, 0.17, 0.38, 0.19);
+      f.box(outfit2, 0.12, 0.3, 0.4, 0.17, 0.38, 0.19);
+      f.box(dark, -0.12, 0.07, 0.44, 0.2, 0.1, 0.28);
+      f.box(dark, 0.12, 0.07, 0.44, 0.2, 0.1, 0.28);
+      f.box(trim, -0.12, 0.19, 0.4, 0.185, 0.12, 0.2);
+      f.box(trim, 0.12, 0.19, 0.4, 0.185, 0.12, 0.2);
+    } else {
+      f.box(outfit2, -0.12, 0.28, 0, 0.17, 0.56, 0.19);
+      f.box(outfit2, 0.12, 0.28, 0, 0.17, 0.56, 0.19);
+      f.box(dark, -0.12, 0.05, 0.03, 0.2, 0.1, 0.28);
+      f.box(dark, 0.12, 0.05, 0.03, 0.2, 0.1, 0.28);
+      f.box(trim, -0.12, 0.2, 0.01, 0.185, 0.12, 0.2);
+      f.box(trim, 0.12, 0.2, 0.01, 0.185, 0.12, 0.2);
+    }
 
     // torso
     f.box(outfit, 0, 0.78, 0, 0.46, 0.52, 0.28);
@@ -1186,7 +1379,10 @@
     S.cam.pos = new THREE.Vector3();
     S.cam.initialized = false;
 
-    setLoading(88, 'LLAMANDO A LOS HABITANTES...');
+    setLoading(86, 'PREPARANDO EL DESPACHO DEL HOKAGE...');
+    buildHokageRoom();
+    buildHokageCheckpoint();
+    setLoading(90, 'LLAMANDO A LOS HABITANTES...');
     buildNpcs();
     buildScrolls();
     setLoading(97, 'ABRIENDO LAS PUERTAS...');
@@ -1207,13 +1403,19 @@
     var used = [];
     list.forEach(function (def) {
       if (!def || !def.id) return;
-      var spot = resolveReachable(def.x, def.z, 55);
-      if (spot) {
-        used.push({ x: spot.x, z: spot.z });
+      var roomNpc = !!def.room;
+      var spot;
+      if (roomNpc) {
+        spot = { x: ROOM_X + (def.x || 0), z: ROOM_Z + (def.z || 0), y: ROOM_FLOOR };
       } else {
-        var fallback = findReachableSpot(-27.7, 0.1, 90, 6, used);
-        if (!fallback) return;
-        spot = fallback;
+        spot = resolveReachable(def.x, def.z, 55);
+        if (spot) {
+          used.push({ x: spot.x, z: spot.z });
+        } else {
+          var fallback = findReachableSpot(-27.7, 0.1, 90, 6, used);
+          if (!fallback) return;
+          spot = fallback;
+        }
       }
       var group = new THREE.Group();
       var full = null;
@@ -1225,26 +1427,31 @@
       if (full) {
         group.add(full);
       } else {
-        group.add(makeChibi(artFor(def), def.scale || 1));
+        var art = artFor(def);
+        if (def.seated) art = Object.assign({}, art, { seated: true });
+        group.add(makeChibi(art, def.scale || 1));
       }
       var shadow = makeBlobShadow(full ? 0.66 : 0.58);
       shadow.position.y = 0.05;
       group.add(shadow);
 
       var label = makeLabelSprite(def.name || def.id, def.role || 'Shinobi de la Hoja', def.id === 'hokage' ? '#ffc247' : '#66d9ff');
-      label.position.y = full ? 2.35 : 2.0;
+      label.position.y = full ? 2.35 : (def.seated ? 1.9 : 2.0);
       label.visible = false;
       group.add(label);
 
       var marker = makeMarkerSprite(def.marker === 'story' ? 'quest' : def.marker === 'mission' ? 'quest' : def.marker === 'spar' ? 'spar' : 'talk');
-      marker.position.y = full ? 2.9 : 2.5;
+      marker.position.y = full ? 2.9 : (def.seated ? 2.25 : 2.5);
       marker.visible = false;
       group.add(marker);
 
       group.position.set(spot.x, spot.y, spot.z);
-      var baseYaw = Math.atan2(-spot.x, -spot.z);
+      var baseYaw = roomNpc
+        ? (typeof def.yaw === 'number' ? def.yaw : Math.PI / 2)
+        : Math.atan2(-spot.x, -spot.z);
       group.rotation.y = baseYaw;
       group.matrixAutoUpdate = true;
+      if (roomNpc) group.visible = !!(S.room && S.room.active);
       S.scene.add(group);
       S.npcs.push({
         id: def.id, name: def.name || def.id, role: def.role || '',
@@ -1254,9 +1461,178 @@
         group: group, label: label, markerSprite: marker,
         phase: Math.random() * 6.28,
         full: !!full,
+        seated: !!def.seated,
+        roomNpc: roomNpc,
+        fixedYaw: roomNpc || !!def.fixedYaw,
         labelAccent: def.id === 'hokage' ? '#ffc247' : '#66d9ff'
       });
     });
+  }
+
+  function makeRoomPortal(x, z, title, subtitle) {
+    var group = new THREE.Group();
+    group.position.set(x, ROOM_FLOOR + 0.035, z);
+    var ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.02, 0.055, 8, 36),
+      new THREE.MeshBasicMaterial({ color: 0xffc247, transparent: true, opacity: 0.9, fog: false, depthWrite: false })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    group.add(ring);
+    var disc = new THREE.Mesh(
+      new THREE.CircleGeometry(0.92, 32),
+      new THREE.MeshBasicMaterial({ color: 0xffc247, transparent: true, opacity: 0.13, side: THREE.DoubleSide, fog: false, depthWrite: false })
+    );
+    disc.rotation.x = -Math.PI / 2;
+    disc.position.y = 0.005;
+    group.add(disc);
+    var beaconMat = new THREE.MeshBasicMaterial({ color: 0xffc247, transparent: true, opacity: 0.1, side: THREE.DoubleSide, fog: false, depthWrite: false });
+    var beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.42, 4.2, 8, 1, true), beaconMat);
+    beacon.position.y = 1.8;
+    group.add(beacon);
+    var label = makeLabelSprite(title, subtitle, '#ffc247');
+    label.position.y = 2.15;
+    group.add(label);
+    group.userData.ring = ring;
+    group.userData.beacon = beacon;
+    group.userData.label = label;
+    S.scene.add(group);
+    return { x: x, z: z, group: group, ring: ring, beacon: beacon, label: label };
+  }
+
+  function buildHokageRoom() {
+    var gltf = S.modelCache[HOKAGE_ROOM_URL];
+    if (!gltf) return;
+    /* El modelo se cachea entre partidas: clonarlo y partir siempre de la
+       altura base evita que el despacho se desplace al volver a entrar. */
+    ROOM_FLOOR = 0.02;
+    var root = gltf.scene.clone(true);
+    root.updateMatrixWorld(true);
+    var box = new THREE.Box3().setFromObject(root);
+    var center = box.getCenter(new THREE.Vector3());
+    root.position.x += ROOM_X - center.x;
+    root.position.z += ROOM_Z - center.z;
+    root.position.y += ROOM_FLOOR - box.min.y;
+    root.updateMatrixWorld(true);
+
+    /* El suelo del modelo queda algo por encima de su base: usamos la cara
+       superior de la tarima como altura de apoyo del jugador. */
+    var floorMesh = root.getObjectByName('Object_4');
+    if (floorMesh) {
+      var floorBox = new THREE.Box3().setFromObject(floorMesh);
+      if (isFinite(floorBox.max.y)) ROOM_FLOOR = floorBox.max.y + 0.006;
+    }
+
+    var ceilings = [];
+    root.traverse(function (o) {
+      if (!o.isMesh) return;
+      o.frustumCulled = true;
+      if (o.name === 'Object_300' || /ceiling|techo|roof/i.test(o.name || '')) {
+        o.visible = false;
+        return;
+      }
+      if (o.material) o.material = basicMaterialFrom(o.material, { side: THREE.DoubleSide, forceClone: true });
+      var mb = new THREE.Box3().setFromObject(o);
+      if (isFinite(mb.min.y) && mb.min.y > ROOM_FLOOR + 2.95) {
+        o.visible = false;
+        ceilings.push(o.name);
+      }
+    });
+    S.scene.add(root);
+
+    /* Techo oscuro propio para que la cámara no vea el cielo desde dentro. */
+    var ceiling = new THREE.Mesh(
+      new THREE.PlaneGeometry(24.2, 17.4),
+      new THREE.MeshBasicMaterial({ color: 0x241b13, side: THREE.DoubleSide, fog: false })
+    );
+    ceiling.rotation.x = Math.PI / 2;
+    ceiling.position.set(ROOM_X, ROOM_FLOOR + 3.58, ROOM_Z);
+    S.scene.add(ceiling);
+
+    S.room = {
+      active: false,
+      root: root,
+      ceiling: ceiling,
+      returnPos: null,
+      prevCamDist: null,
+      hiddenCeilings: ceilings
+    };
+    S.roomExit = makeRoomPortal(ROOM_EXIT.x, ROOM_EXIT.z, 'SALIR DEL DESPACHO', 'Volver a la aldea');
+    S.room.exit = S.roomExit;
+    S.roomExit.label.visible = false;
+  }
+
+  function buildHokageCheckpoint() {
+    var spot = resolveReachable(CHECKPOINT_X, CHECKPOINT_Z, 8);
+    if (!spot) spot = resolveReachable(CHECKPOINT_X, 20, 10);
+    if (!spot) spot = { x: CHECKPOINT_X, z: CHECKPOINT_Z, y: 9.56 };
+    var group = new THREE.Group();
+    group.position.set(spot.x, spot.y + 0.035, spot.z);
+
+    var ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.18, 0.065, 8, 40),
+      new THREE.MeshBasicMaterial({ color: 0xffc247, transparent: true, opacity: 0.92, fog: false, depthWrite: false })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    group.add(ring);
+    var disc = new THREE.Mesh(
+      new THREE.CircleGeometry(1.06, 36),
+      new THREE.MeshBasicMaterial({ color: 0xffd36b, transparent: true, opacity: 0.16, side: THREE.DoubleSide, fog: false, depthWrite: false })
+    );
+    disc.rotation.x = -Math.PI / 2;
+    disc.position.y = 0.006;
+    group.add(disc);
+    var inner = new THREE.Mesh(
+      new THREE.TorusGeometry(0.72, 0.025, 6, 32),
+      new THREE.MeshBasicMaterial({ color: 0xfff2c8, transparent: true, opacity: 0.55, fog: false, depthWrite: false })
+    );
+    inner.rotation.x = -Math.PI / 2;
+    inner.position.y = 0.01;
+    group.add(inner);
+    var beaconMat = new THREE.MeshBasicMaterial({ color: 0xffc247, transparent: true, opacity: 0.08, side: THREE.DoubleSide, fog: false, depthWrite: false });
+    var beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.52, 5.2, 8, 1, true), beaconMat);
+    beacon.position.y = 2.3;
+    group.add(beacon);
+    var label = makeLabelSprite('DESPACHO DEL HOKAGE', 'Entrar en el despacho', '#ffc247');
+    label.position.y = 2.55;
+    group.add(label);
+
+    group.userData.ring = ring;
+    group.userData.inner = inner;
+    group.userData.beacon = beacon;
+    S.scene.add(group);
+    S.checkpoint = {
+      x: spot.x, z: spot.z, groundY: spot.y,
+      group: group, ring: ring, inner: inner, beacon: beacon, label: label,
+      phase: 0
+    };
+  }
+
+  function updateRoomPortals(dt) {
+    /* Las aguas de la aldea son dos planos enormes; dentro del despacho
+       taparían el suelo del modelo. */
+    var showWater = !(S.room && S.room.active);
+    if (S.water) S.water.visible = showWater;
+    if (S.waterDeep) S.waterDeep.visible = showWater;
+    if (S.checkpoint) {
+      var c = S.checkpoint;
+      c.ring.rotation.z += dt * 0.9;
+      c.inner.rotation.z -= dt * 1.35;
+      c.beacon.material.opacity = 0.055 + 0.055 * (0.5 + 0.5 * Math.sin(S.elapsed * 2.1));
+      var pulse = 1 + Math.sin(S.elapsed * 2.1) * 0.05;
+      c.ring.scale.set(pulse, pulse, 1);
+      var dc = S.player ? Math.hypot(S.player.x - c.x, S.player.z - c.z) : 999;
+      c.label.visible = dc > 9 && dc < 80;
+    }
+    if (S.roomExit) {
+      var e = S.roomExit;
+      e.ring.rotation.z -= dt * 0.9;
+      e.beacon.material.opacity = 0.06 + 0.05 * (0.5 + 0.5 * Math.sin(S.elapsed * 1.8 + 1));
+      e.group.visible = !!(S.room && S.room.active);
+      if (S.player) {
+        var de = Math.hypot(S.player.x - e.x, S.player.z - e.z);
+        e.label.visible = de > 3.2;
+      }
+    }
   }
 
   function buildScrolls() {
@@ -1373,6 +1749,44 @@
     var ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cw, ch);
+    if (S.room && S.room.active) {
+      var l = -12.3, r = 2.7, t = -8.9, b = 8.9;
+      var pad = 9;
+      var sc = Math.min((cw - pad * 2) / (r - l), (ch - pad * 2) / (b - t));
+      var ox = pad + ((cw - pad * 2) - (r - l) * sc) / 2;
+      var oy = pad + ((ch - pad * 2) - (b - t) * sc) / 2;
+      function toRoom(lx, lz) { return [ox + (lx - l) * sc, oy + (lz - t) * sc]; }
+      ctx.fillStyle = '#101a26';
+      ctx.fillRect(0, 0, cw, ch);
+      ctx.fillStyle = '#1c2c3a';
+      ctx.fillRect(ox, oy, (r - l) * sc, (b - t) * sc);
+      ctx.strokeStyle = 'rgba(255,194,71,0.75)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(ox, oy, (r - l) * sc, (b - t) * sc);
+      var desk = toRoom(ROOM_DESK.minX - ROOM_X, ROOM_DESK.minZ - ROOM_Z);
+      ctx.fillStyle = 'rgba(255,194,71,0.28)';
+      ctx.fillRect(desk[0], desk[1], (ROOM_DESK.maxX - ROOM_DESK.minX) * sc, (ROOM_DESK.maxZ - ROOM_DESK.minZ) * sc);
+      var hk = toRoom(HOKAGE_ROOM_POS.x - ROOM_X, HOKAGE_ROOM_POS.z - ROOM_Z);
+      ctx.fillStyle = '#ffe066';
+      ctx.beginPath(); ctx.arc(hk[0], hk[1], 4, 0, Math.PI * 2); ctx.fill();
+      var ex = toRoom(ROOM_EXIT.x - ROOM_X, ROOM_EXIT.z - ROOM_Z);
+      ctx.strokeStyle = '#78dcff';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(ex[0], ex[1], 4, 0, Math.PI * 2); ctx.stroke();
+      var pl = toRoom(S.player.x - ROOM_X, S.player.z - ROOM_Z);
+      ctx.save();
+      ctx.translate(pl[0], pl[1]);
+      ctx.rotate(Math.atan2(Math.sin(S.player.yaw), -Math.cos(S.player.yaw)));
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(0, -6); ctx.lineTo(4.4, 5); ctx.lineTo(0, 2.4); ctx.lineTo(-4.4, 5);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,194,71,0.95)';
+      ctx.font = '700 10px Rajdhani, Segoe UI, sans-serif';
+      ctx.fillText('DESPACHO', 8, ch - 7);
+      return;
+    }
     var scale = 2.6;
     var viewW = cw / scale, viewH = ch / scale;
     var hm = S.hm;
@@ -1398,6 +1812,21 @@
       ctx.arc(p[0], p[1], 3, 0, Math.PI * 2);
       ctx.fill();
     });
+
+    if (S.checkpoint) {
+      var cpMark = toMini(S.checkpoint.x, S.checkpoint.z);
+      if (cpMark[0] > -10 && cpMark[0] < cw + 10 && cpMark[1] > -10 && cpMark[1] < ch + 10) {
+        ctx.strokeStyle = '#ffc247';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cpMark[0], cpMark[1], 4.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,194,71,0.55)';
+        ctx.beginPath();
+        ctx.arc(cpMark[0], cpMark[1], 1.8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
     S.npcs.forEach(function (n) {
       var p = toMini(n.x, n.z);
@@ -1445,8 +1874,16 @@
      Áreas de la aldea
      ============================================================ */
   function updateArea() {
+    if (!S.player) return;
+    if (S.room && S.room.active) {
+      if (S.areaLast !== 'DESPACHO DEL HOKAGE') {
+        S.areaLast = 'DESPACHO DEL HOKAGE';
+        notify('onArea', { name: S.areaLast });
+      }
+      return;
+    }
     var areas = S.opts.areas || [];
-    if (!areas.length || !S.player) return;
+    if (!areas.length) return;
     var best = null;
     for (var i = 0; i < areas.length; i++) {
       var a = areas[i];
@@ -1489,6 +1926,13 @@
   function tryMovePlayer(dx, dz) {
     var p = S.player;
     var nx = p.x + dx, nz = p.z + dz;
+    if (S.room && S.room.active) {
+      nx = clamp(nx, ROOM_MIN_X, ROOM_MAX_X);
+      nz = clamp(nz, ROOM_MIN_Z, ROOM_MAX_Z);
+      if (nx > ROOM_DESK.minX && nx < ROOM_DESK.maxX && nz > ROOM_DESK.minZ && nz < ROOM_DESK.maxZ) return false;
+      p.x = nx; p.z = nz; p.groundY = ROOM_FLOOR;
+      return true;
+    }
     var g = groundHeight(nx, nz);
     if (g === null) return false;
     if (Math.abs(g - p.groundY) > 1.05) return false;
@@ -1576,6 +2020,16 @@
     if (!p || !p.bones) return;
     var moving = speedNow > 0.4;
     var ratio = clamp(speedNow / 7.6, 0, 1.2);
+
+    /* La carrera usa el clip Mixamo suministrado (patas) + brazos detrás
+       al estilo Naruto. El salto y el reposo conservan la animación
+       procedural original. */
+    if (moving && p.onGround && p.runKit) {
+      applyRunPose(p, dt, speedNow);
+      return;
+    }
+    if (p.runActive) resetRunPose(p);
+
     if (moving) {
       p.phase += dt * (5.6 + ratio * 5.2) * (speedNow > 0.4 ? 1 : 0);
     } else {
@@ -1636,6 +2090,11 @@
     if (cy < 1.2) cy = 1.2;
     var camGround = terrainHeight(cx, cz);
     if (camGround !== null && cy < camGround + 0.4) cy = camGround + 0.4;
+    if (S.room && S.room.active) {
+      cx = clamp(cx, ROOM_CAM_MIN_X, ROOM_CAM_MAX_X);
+      cz = clamp(cz, ROOM_MIN_Z + 0.35, ROOM_MAX_Z - 0.35);
+      cy = clamp(cy, ROOM_FLOOR + 0.75, ROOM_FLOOR + 3.3);
+    }
 
     if (!cam.initialized) {
       cam.pos.set(cx, cy, cz);
@@ -1654,6 +2113,68 @@
   }
 
   /* ============================================================
+     Entrada y salida del despacho del Hokage
+     ============================================================ */
+  function enterHokageRoom() {
+    var p = S.player, room = S.room;
+    if (!p || !room || S.paused || room.active) return;
+    room.active = true;
+    room.returnPos = {
+      x: p.x, z: p.z, y: p.groundY,
+      playerYaw: p.yaw,
+      camYaw: S.cam.yaw,
+      pitch: S.cam.pitch
+    };
+    room.prevCamDist = S.cam.dist;
+
+    p.x = ROOM_SPAWN.x; p.z = ROOM_SPAWN.z;
+    p.groundY = ROOM_FLOOR; p.y = ROOM_FLOOR;
+    p.jumpY = 0; p.vy = 0; p.onGround = true;
+    p.velX = 0; p.velZ = 0; p.speed = 0;
+    p.yaw = p.targetYaw = ROOM_SPAWN.yaw;
+    p.root.rotation.y = p.yaw;
+    p.root.position.set(p.x, p.y, p.z);
+
+    S.cam.dist = 3.7;
+    S.cam.curDist = 3.7;
+    S.cam.yaw = Math.PI / 2;
+    S.cam.pitch = 0.24;
+    S.cam.initialized = false;
+    if (S.roomExit) S.roomExit.group.visible = true;
+
+    S.promptText = ''; S.promptBest = null;
+    notify('onPrompt', null);
+    S.areaLast = 'DESPACHO DEL HOKAGE';
+    notify('onArea', { name: S.areaLast });
+  }
+
+  function exitHokageRoom() {
+    var p = S.player, room = S.room;
+    if (!p || !room || !room.active) return;
+    var back = room.returnPos || { x: CHECKPOINT_X, z: CHECKPOINT_Z + 1.2, y: 9.57, playerYaw: Math.PI, camYaw: 0, pitch: 0.2 };
+    room.active = false;
+    p.x = back.x; p.z = back.z;
+    p.groundY = back.y; p.y = back.y;
+    p.jumpY = 0; p.vy = 0; p.onGround = true;
+    p.velX = 0; p.velZ = 0; p.speed = 0;
+    p.yaw = p.targetYaw = back.playerYaw;
+    p.root.rotation.y = p.yaw;
+    p.root.position.set(p.x, p.y, p.z);
+
+    S.cam.yaw = back.camYaw;
+    S.cam.pitch = typeof back.pitch === 'number' ? back.pitch : 0.2;
+    S.cam.dist = room.prevCamDist || 5.6;
+    S.cam.curDist = S.cam.dist;
+    S.cam.initialized = false;
+    if (S.roomExit) S.roomExit.group.visible = false;
+
+    S.promptText = ''; S.promptBest = null;
+    notify('onPrompt', null);
+    S.areaLast = 'TORRE DEL HOKAGE';
+    notify('onArea', { name: S.areaLast });
+  }
+
+  /* ============================================================
      Interacción
      ============================================================ */
   function updateInteraction() {
@@ -1662,6 +2183,7 @@
     var best = null;
     var bestScore = 1e9;
     S.npcs.forEach(function (n) {
+      if (n.roomNpc && !(S.room && S.room.active)) return;
       var d2 = dist2(p.x, p.z, n.x, n.z);
       var range = n.full ? 4.0 : 3.0;
       if (d2 > range * range) return;
@@ -1676,10 +2198,28 @@
       var score = d2 / (range * range) - 0.35;
       if (score < bestScore) { bestScore = score; best = { type: 'scroll', scroll: s }; }
     });
+    if (S.checkpoint && (!S.room || !S.room.active)) {
+      var d2c = dist2(p.x, p.z, S.checkpoint.x, S.checkpoint.z);
+      var rangeC = 3.2;
+      if (d2c <= rangeC * rangeC) {
+        var scoreC = d2c / (rangeC * rangeC) - 0.45;
+        if (scoreC < bestScore) { bestScore = scoreC; best = { type: 'checkpoint' }; }
+      }
+    }
+    if (S.room && S.room.active && S.roomExit) {
+      var d2e = dist2(p.x, p.z, S.roomExit.x, S.roomExit.z);
+      var rangeE = 2.7;
+      if (d2e <= rangeE * rangeE) {
+        var scoreE = d2e / (rangeE * rangeE) - 0.5;
+        if (scoreE < bestScore) { bestScore = scoreE; best = { type: 'roomExit' }; }
+      }
+    }
     S.promptBest = best;
     var text = '';
     if (best && best.type === 'npc') text = 'Hablar con ' + best.npc.name;
     else if (best && best.type === 'scroll') text = 'Recoger ' + best.scroll.label;
+    else if (best && best.type === 'checkpoint') text = 'Entrar al despacho del Hokage';
+    else if (best && best.type === 'roomExit') text = 'Salir al exterior';
     if (text !== S.promptText) {
       S.promptText = text;
       notify('onPrompt', text ? { text: text } : null);
@@ -1697,6 +2237,10 @@
       S.promptText = '';
       notify('onPrompt', null);
       notify('onInteract', { id: npc.id, name: npc.name, role: npc.role });
+    } else if (best.type === 'checkpoint') {
+      enterHokageRoom();
+    } else if (best.type === 'roomExit') {
+      exitHokageRoom();
     }
   }
 
@@ -1745,19 +2289,31 @@
      ============================================================ */
   function updateNpcs(dt) {
     var p = S.player;
+    var roomActive = !!(S.room && S.room.active);
     for (var i = 0; i < S.npcs.length; i++) {
       var n = S.npcs[i];
-      n.group.position.y = n.groundY + Math.sin(S.elapsed * 1.5 + n.phase) * 0.02;
+      if (n.roomNpc) {
+        n.group.visible = roomActive;
+        if (!roomActive) {
+          if (n.markerSprite) n.markerSprite.visible = false;
+          continue;
+        }
+      }
+      if (!n.seated) n.group.position.y = n.groundY + Math.sin(S.elapsed * 1.5 + n.phase) * 0.02;
       var d2 = dist2(p.x, p.z, n.x, n.z);
-      var yaw = n.baseYaw;
-      if (d2 < 64) yaw = Math.atan2(p.x - n.x, p.z - n.z);
-      n.yaw += shortestAngle(n.yaw, yaw) * Math.min(1, dt * 4);
-      n.group.rotation.y = n.yaw;
+      if (n.fixedYaw) {
+        n.group.rotation.y = n.baseYaw;
+      } else {
+        var yaw = n.baseYaw;
+        if (d2 < 64) yaw = Math.atan2(p.x - n.x, p.z - n.z);
+        n.yaw += shortestAngle(n.yaw, yaw) * Math.min(1, dt * 4);
+        n.group.rotation.y = n.yaw;
+      }
       var isQuest = !!(S.quest && S.quest.targetNpc === n.id);
       if (n.markerSprite) {
         n.markerSprite.visible = isQuest || (d2 < 400 && n.marker !== 'talk');
         if (n.markerSprite.visible) {
-          n.markerSprite.position.y = (n.full ? 2.9 : 2.5) + Math.sin(S.elapsed * 2.4 + n.phase) * 0.07;
+          n.markerSprite.position.y = (n.full ? 2.9 : (n.seated ? 2.25 : 2.5)) + Math.sin(S.elapsed * 2.4 + n.phase) * 0.07;
         }
       }
     }
@@ -1767,6 +2323,10 @@
     var p = S.player;
     for (var i = 0; i < S.npcs.length; i++) {
       var n = S.npcs[i];
+      if (n.roomNpc && !(S.room && S.room.active)) {
+        n.label.visible = false;
+        continue;
+      }
       var d2 = dist2(p.x, p.z, n.x, n.z);
       var visible = d2 < 430;
       n.label.visible = visible;
@@ -1875,6 +2435,7 @@
       updateCamera(dt);
       updateNpcs(dt);
       updateScrolls(dt);
+      updateRoomPortals(dt);
       updateCollectFx(dt);
       updateInteraction();
       updateTime(dt);
@@ -2146,6 +2707,7 @@
     S.quest = options.quest || null;
     S.scrolls = []; S.npcs = []; S.collectFx = []; S.frameCount = 0;
     S.promptText = ''; S.promptBest = null;
+    S.room = null; S.checkpoint = null; S.roomExit = null;
     detectQuality();
     setOverlay('error', false);
     setOverlay('loading', true);
@@ -2186,9 +2748,11 @@
 
     var progressRef = { loaded: 0, total: 1 };
     Promise.all([
-      loadModel(VILLAGE_URL, 0.55, progressRef),
-      loadModel(CHARS_URL, 0.4, progressRef),
-      loadModel(KAKASHI_URL, 0.05, progressRef)
+      loadModel(VILLAGE_URL, 0.49, progressRef),
+      loadModel(CHARS_URL, 0.36, progressRef),
+      loadModel(KAKASHI_URL, 0.04, progressRef),
+      loadModel(RUN_URL, 0.05, progressRef),
+      loadModel(HOKAGE_ROOM_URL, 0.06, progressRef)
     ]).then(function () {
       if (!S.active || session !== S.session) return;
       buildWorld();
@@ -2237,6 +2801,7 @@
     S.village = null; S.water = null; S.waterDeep = null; S.sky = null; S.sunMesh = null;
     S.scenery = null; S.clouds = null; S.player = null;
     S.npcs = []; S.scrolls = []; S.collectFx = [];
+    S.room = null; S.checkpoint = null; S.roomExit = null;
     S.miniAtlas = null;
     setOverlay('loading', false);
     setOverlay('error', false);
@@ -2269,14 +2834,29 @@
 
   function getPlayerState() {
     if (!S.player) return null;
+    /* Las coordenadas internas del despacho no deben guardarse: al volver
+       a entrar en el mundo el jugador aparecería en mitad de la nada. */
+    if (S.room && S.room.active && S.room.returnPos) {
+      var b = S.room.returnPos;
+      return { x: b.x, y: b.y, z: b.z, rot: b.camYaw, area: 'TORRE DEL HOKAGE' };
+    }
     return { x: S.player.x, y: S.player.y, z: S.player.z, rot: S.cam.yaw, area: S.areaLast };
   }
 
   function setPlayerState(pos) {
     if (!pos || !S.player) return;
-    var spot = resolveReachable(pos.x, pos.z, 50);
-    if (!spot) return;
     var p = S.player;
+    var spot;
+    if (S.room && S.room.active) {
+      spot = {
+        x: clamp(pos.x, ROOM_MIN_X, ROOM_MAX_X),
+        z: clamp(pos.z, ROOM_MIN_Z, ROOM_MAX_Z),
+        y: ROOM_FLOOR
+      };
+    } else {
+      spot = resolveReachable(pos.x, pos.z, 50);
+    }
+    if (!spot) return;
     p.x = spot.x; p.z = spot.z; p.groundY = spot.y; p.y = spot.y;
     p.jumpY = 0; p.vy = 0; p.onGround = true; p.velX = 0; p.velZ = 0;
     p.phase = 0;
@@ -2349,6 +2929,9 @@
       return { yaw: S.cam.yaw, pitch: S.cam.pitch, dist: S.cam.dist };
     },
     interact: interact,
+    enterHokageRoom: enterHokageRoom,
+    exitHokageRoom: exitHokageRoom,
+    isRoomActive: function () { return !!(S.room && S.room.active); },
     markCollectible: markCollectible,
     setTouchMode: setTouchMode,
     setReduced: setReduced,
@@ -2370,7 +2953,10 @@
         cam: { yaw: S.cam.yaw, pitch: S.cam.pitch, dist: S.cam.curDist },
         quality: { dpr: S.quality.dpr, low: S.quality.low },
         frames: S.frameCount,
-        npcs: S.npcs.map(function (n) { return { id: n.id, x: n.x, z: n.z, y: n.groundY, full: n.full }; }),
+        room: S.room ? { active: S.room.active, floorY: ROOM_FLOOR, player: S.player ? { x: S.player.x, y: S.player.y, z: S.player.z, rot: S.player.yaw } : null, exit: { x: S.roomExit.x, z: S.roomExit.z } } : null,
+        checkpoint: S.checkpoint ? { x: S.checkpoint.x, z: S.checkpoint.z, y: S.checkpoint.groundY } : null,
+        motion: S.player ? { onGround: S.player.onGround, runActive: !!S.player.runActive, speed: S.player.speed, lean: S.player.holder ? S.player.holder.rotation.x : 0, holderY: S.player.holder ? S.player.holder.position.y : 0 } : null,
+        npcs: S.npcs.map(function (n) { return { id: n.id, x: n.x, z: n.z, y: n.groundY, full: n.full, seated: !!n.seated }; }),
         scrolls: S.scrolls.map(function (s) { return { id: s.id, x: s.x, z: s.z, y: s.groundY, collected: s.collected ? 1 : 0 }; })
       };
     },

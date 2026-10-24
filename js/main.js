@@ -464,6 +464,13 @@
     const list = window.World && window.World.npcData ? window.World.npcData : [];
     list.forEach(function (npc) {
       if (!npc || npc.id === 'sasuke') return;
+      /* Hiruzen vive dentro del despacho, no en la explanada de la torre. */
+      if (npc.id === 'hokage') {
+        defs.push(Object.assign({}, npc, {
+          x: -7.6, z: -0.45, room: true, seated: true, yaw: Math.PI / 2
+        }));
+        return;
+      }
       const pos = W3D_NPC_POS[npc.id];
       if (!pos) return;
       defs.push(Object.assign({}, npc, { x: pos[0], z: pos[1] }));
@@ -3627,11 +3634,25 @@
     if (stats) {
       const quest = computeQuest();
       const target = quest ? quest.targetNpc : null;
+      if (stats.checkpoint) {
+        const cpx = px(stats.checkpoint.x), cpz = pz(stats.checkpoint.z);
+        ctx.strokeStyle = '#ffc247';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.arc(cpx, cpz, 6.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255, 194, 71, .5)';
+        ctx.beginPath();
+        ctx.arc(cpx, cpz, 2.6, 0, Math.PI * 2);
+        ctx.fill();
+      }
       stats.npcs.forEach(function (npc) {
+        const nx = px(npc.x), nz = pz(npc.z);
+        if (nx < 8 || nx > w - 8 || nz < 8 || nz > h - 8) return;
         const isTarget = target === npc.id;
         ctx.fillStyle = isTarget ? '#ffc247' : 'rgba(102, 217, 255, .9)';
         ctx.beginPath();
-        ctx.arc(px(npc.x), pz(npc.z), isTarget ? 6 : 4.2, 0, Math.PI * 2);
+        ctx.arc(nx, nz, isTarget ? 6 : 4.2, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = 'rgba(4, 14, 20, .8)';
         ctx.lineWidth = 1.5;
