@@ -46,8 +46,8 @@
   var ROOM_EXIT = { x: ROOM_X + 1.45, z: ROOM_Z };
   var ROOM_DESK = { minX: ROOM_X - 9.3, maxX: ROOM_X - 5.2, minZ: ROOM_Z - 2.4, maxZ: ROOM_Z + 1.4 };
   var HOKAGE_ROOM_POS = { x: ROOM_X - 7.6, z: ROOM_Z - 0.45 };
-  var CHECKPOINT_X = -9.7;
-  var CHECKPOINT_Z = 19.8;
+  var CHECKPOINT_X = -11.7;
+  var CHECKPOINT_Z = 18.6;
 
   /* Correspondencia de las patas del rig DEF con el clip Mixamo suministrado.
      El torso se deja en su pose de reposo: mezclar orientaciones entre ambos
@@ -822,17 +822,37 @@
     });
     if (!Object.keys(targetBone).length) return null;
 
-    var armNames = which === 'sasuke'
-      ? ['DEF-upper_armL_0156', 'DEF-upper_armR_0282']
-      : ['DEF-upper_armL_0569', 'DEF-upper_armR_0694'];
+    /* El clip de origen deja los dos brazos atrás, pero su esqueleto no
+       coincide con el de los personajes. En vez de copiar rotaciones locales
+       (que torcían los hombros), apuntamos cada brazo hacia atrás en el
+       espacio del personaje y estiramos el codo. */
+    var armDefs = which === 'sasuke'
+      ? [['DEF-upper_armL_0156', 'DEF-forearmL_0158'], ['DEF-upper_armR_0282', 'DEF-forearmR_0284']]
+      : [['DEF-upper_armL_0569', 'DEF-forearmL_0571'], ['DEF-upper_armR_0694', 'DEF-forearmR_0675']];
     var armData = [];
-    armNames.forEach(function (name, idx) {
-      var bone = clone.getObjectByName(name);
+    armDefs.forEach(function (pair, idx) {
+      var bone = clone.getObjectByName(pair[0]);
+      var fore = clone.getObjectByName(pair[1]);
       if (!bone) return;
+      var restDir = fore
+        ? fore.position.clone().applyQuaternion(bone.quaternion).normalize()
+        : new THREE.Vector3(0, 1, 0);
+      var foreRest = fore ? fore.quaternion.clone() : null;
+      var foreDir = new THREE.Vector3(0, 1, 0);
+      if (fore) {
+        var hand = null;
+        for (var ci = 0; ci < fore.children.length; ci++) {
+          if (fore.children[ci].isBone) { hand = fore.children[ci]; break; }
+        }
+        if (hand) foreDir.copy(hand.position).normalize().applyQuaternion(foreRest);
+      }
       armData.push({
         bone: bone,
+        fore: fore,
         rest: bone.quaternion.clone(),
-        axis: runBoneAxis(bone),
+        restDir: restDir,
+        foreRest: foreRest,
+        foreDir: foreDir,
         side: idx === 0 ? 1 : -1
       });
     });
@@ -868,7 +888,10 @@
     Object.keys(kit.targetBone).forEach(function (name) {
       kit.targetBone[name].quaternion.copy(kit.targetRest[name]);
     });
-    kit.armData.forEach(function (a) { a.bone.quaternion.copy(a.rest); });
+    kit.armData.forEach(function (a) {
+      a.bone.quaternion.copy(a.rest);
+      if (a.fore && a.foreRest) a.fore.quaternion.copy(a.foreRest);
+    });
     if (kit.headBone && kit.headRest) kit.headBone.quaternion.copy(kit.headRest);
     if (p.holder) {
       p.holder.rotation.x = 0;
@@ -891,9 +914,22 @@
     });
 
     var sway = Math.sin(t / kit.duration * Math.PI * 2);
+    var rootQ = S.tmp.q3;
+    p.root.getWorldQuaternion(rootQ);
     kit.armData.forEach(function (a) {
-      var q = S.tmp.q2.setFromAxisAngle(a.axis, 1.15 + sway * 0.09 * a.side);
+      /* Brazo hacia atrás (+Z local del personaje), algo abierto hacia
+         fuera y ligeramente hacia abajo. */
+      var desired = S.tmp.v2.set(a.side * 0.50, -0.22 + sway * 0.03 * a.side, -0.84);
+      desired.normalize().applyQuaternion(rootQ);
+      var pq = S.tmp.q1;
+      a.bone.parent.getWorldQuaternion(pq).invert();
+      desired.applyQuaternion(pq).normalize();
+      var q = S.tmp.q2.setFromUnitVectors(a.restDir, desired);
       a.bone.quaternion.copy(a.rest).premultiply(q);
+      if (a.fore && a.foreRest) {
+        var fq = S.tmp.q1.setFromUnitVectors(a.foreDir, S.tmp.v1.set(0, 1, 0));
+        a.fore.quaternion.copy(a.foreRest).premultiply(fq);
+      }
     });
     if (kit.headBone && kit.headRest && kit.headAxis) {
       kit.headBone.quaternion.copy(kit.headRest);
@@ -2699,7 +2735,8 @@
     if (!S.canvas) return false;
     S.tmp = {
       v1: new THREE.Vector3(), q1: new THREE.Quaternion(),
-      v2: new THREE.Vector3(), q2: new THREE.Quaternion()
+      v2: new THREE.Vector3(), q2: new THREE.Quaternion(),
+      q3: new THREE.Quaternion()
     };
     S.isTouch = !!(options.touch || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches));
     S.clockTime = typeof options.timeMinutes === 'number' ? options.timeMinutes : 8 * 60;
@@ -2909,6 +2946,22 @@
     resume: resume,
     isActive: function () { return S.active; },
     isPaused: function () { return S.paused; },
+    __debug: function () { return S; },
+    __poseRun: function (t, speed) {
+      var p = S.player;
+      if (!p || !p.runKit) return false;
+      p.runTime = t || 0;
+      applyRunPose(p, 0, speed || 7.6);
+      return true;
+    },
+    __resetRun: function () { if (S.player) resetRunPose(S.player); },
+    __renderFrom: function (x, y, z, tx, ty, tz) {
+      if (!S.renderer || !S.scene || !S.camera) return false;
+      S.camera.position.set(x, y, z);
+      S.camera.lookAt(tx, ty, tz);
+      S.renderer.render(S.scene, S.camera);
+      return true;
+    },
     isReady: function () { return S.ready; },
     getPlayerState: getPlayerState,
     setPlayerState: setPlayerState,
